@@ -150,7 +150,7 @@ class PrepCommand extends Command
     private function updateComposer(string $composerJsonPath, OutputInterface $output): void
     {
         $composerConfig = Json::decodeFromFile($composerJsonPath);
-        $composerConfig['require']['craftcms/cms'] = '6.x-dev as 6.0.0-alpha.0';
+        $composerConfig['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
         unset($composerConfig['config']['platform']['php']);
 
         $output->write('<fg=gray>➜</> Updating <options=bold>composer.json</> … ');
