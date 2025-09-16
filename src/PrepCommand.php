@@ -57,7 +57,7 @@ class PrepCommand extends Command
             throw new RuntimeException(sprintf('The project must be running Craft CMS %s or later.', self::MIN_CRAFT_VERSION));
         }
 
-        $output->write('<fg=gray>➜</> Finding public folder … ');
+        $output->write('<fg=gray>➜</> Finding the public folder … ');
         $this->findPublicPath($path, $output);
         $output->writeln("<fg=green>done (<options=bold>$this->publicPath</>)</>");
 
