@@ -307,7 +307,7 @@ exit(\$status);
 
 PHP;
 
-        $output->write("<fg=gray>➜</> Creating <options=bold>artisan</> executable … ");
+        $output->write("<fg=gray>➜</> Creating the <options=bold>artisan</> executable … ");
         file_put_contents($artisanPath, $contents);
         @chmod($artisanPath, 0755);
         $output->writeln('<fg=green>done</>');
@@ -422,7 +422,7 @@ PHP;
             return;
         }
 
-        $output->write("<fg=gray>➜</> Removing <options=bold>craft</> executable … ");
+        $output->write("<fg=gray>➜</> Removing the <options=bold>craft</> executable … ");
         unlink($craftPath);
         $output->writeln('<fg=green>done</>');
     }
