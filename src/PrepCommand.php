@@ -15,7 +15,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use function Laravel\Prompts\confirm;
 
-class NewCommand extends Command
+class PrepCommand extends Command
 {
     const MIN_CRAFT_VERSION = '5.8.0';
     const PHP_VERSION = '8.4';
