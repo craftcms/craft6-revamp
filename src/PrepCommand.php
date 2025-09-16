@@ -149,12 +149,27 @@ class PrepCommand extends Command
 
     private function updateComposer(string $composerJsonPath, OutputInterface $output): void
     {
-        $composerConfig = Json::decodeFromFile($composerJsonPath);
-        $composerConfig['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
-        unset($composerConfig['config']['platform']['php']);
+        $config = Json::decodeFromFile($composerJsonPath);
+        $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
+        unset($config['config']['platform']['php']);
+
+        if (! isset($config['scripts']['post-autoload-dump'])) {
+            $config['scripts']['post-autoload-dump'] = [];
+        }
+
+        $scripts = [
+            'Illuminate\Foundation\ComposerScripts::postAutoloadDump',
+            '@php artisan package:discover --ansi',
+        ];
+
+        foreach ($scripts as $script) {
+            if (!in_array($script, $config['scripts']['post-autoload-dump'])) {
+                $config['scripts']['post-autoload-dump'][] = $script;
+            }
+        }
 
         $output->write('<fg=gray>➜</> Updating <options=bold>composer.json</> … ');
-        Json::encodeToFile($composerJsonPath, $composerConfig);
+        Json::encodeToFile($composerJsonPath, $config);
         $output->writeln('<fg=green>done</>');
     }
 
