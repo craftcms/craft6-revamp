@@ -331,8 +331,11 @@ PHP;
 
         $appPath = "$path/bootstrap/app.php";
 
-        if (! file_exists($appPath)) {
-            $contents = <<<PHP
+        if (file_exists($appPath)) {
+            return;
+        }
+
+        $contents = <<<PHP
 <?php
 
 use Illuminate\Foundation\Application;
@@ -351,31 +354,20 @@ return Application::configure(basePath: dirname(__DIR__))
     })
 
 PHP;
-            if ($this->publicPath !== 'public' && ! $this->renamePublicPath) {
-                $contents .= <<<PHP
+        if ($this->publicPath !== 'public' && ! $this->renamePublicPath) {
+            $contents .= <<<PHP
     ->usePublicPath(base_path('$this->publicPath'))
 
 PHP;
-            }
+        }
 
-            $contents .= <<<PHP
+        $contents .= <<<PHP
     ->create();
 
 PHP;
 
-            $output->write("<fg=gray>➜</> Creating <options=bold>bootstrap/app.php</> … ");
-            file_put_contents($appPath, $contents);
-            $output->writeln('<fg=green>done</>');
-        }
-
-        $craftPath = "$path/craft";
-
-        if (! file_exists($craftPath)) {
-            return;
-        }
-
-        $output->write("<fg=gray>➜</> Removing <options=bold>craft</> executable … ");
-        unlink($craftPath);
+        $output->write("<fg=gray>➜</> Creating <options=bold>bootstrap/app.php</> … ");
+        file_put_contents($appPath, $contents);
         $output->writeln('<fg=green>done</>');
     }
 
