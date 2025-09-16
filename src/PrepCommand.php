@@ -168,6 +168,16 @@ class PrepCommand extends Command
         $ddevConfigPath = "$path/.ddev/config.yaml";
         $ddevConfig = file_get_contents($ddevConfigPath);
 
+        $this->updateDdevPhpVersion($ddevConfig, $output);
+        $this->updateDdevDocroot($ddevConfig, $output);
+
+        $output->write('<fg=gray>➜</> Updating <options=bold>.ddev/config.yaml</> … ');
+        file_put_contents($ddevConfigPath, $ddevConfig);
+        $output->writeln('<fg=green>done</>');
+    }
+
+    private function updateDdevPhpVersion(string &$ddevConfig, OutputInterface $output): void
+    {
         if (! preg_match('/^php_version:\s+[\'"]?([\d\.]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
             $output->writeln('<fg=gray>➜</> <fg=red>No php_version detected in .ddev/config.yaml.</>');
             return;
@@ -181,10 +191,22 @@ class PrepCommand extends Command
         $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
             sprintf('php_version: "%s"', self::PHP_VERSION) .
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
+    }
 
-        $output->write('<fg=gray>➜</> Setting <options=bold>php_version</> to <options=bold>8.4</> in <options=bold>.ddev/config.yaml</> … ');
-        file_put_contents($ddevConfigPath, $ddevConfig);
-        $output->writeln('<fg=green>done</>');
+    private function updateDdevDocroot(string &$ddevConfig, OutputInterface $output): void
+    {
+        if (! $this->renamePublicPath) {
+            return;
+        }
+        if (! preg_match('/^docroot:\s+[\'"]?([\w+\/]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
+            $output->writeln('<fg=gray>➜</> <fg=red>No docroot detected in .ddev/config.yaml.</>');
+            return;
+        }
+
+        // use str_replace() instead of symfony/yaml so we don't lose the comments
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
+            'docroot: public' .
+            substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
     }
 
     private function isDdev(string $path): bool
