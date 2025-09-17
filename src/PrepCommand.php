@@ -72,6 +72,7 @@ class PrepCommand extends Command
         $this->updateEnvVars($path, $output);
         $this->addArtisan($path, $output);
         $this->addBootstrap($path, $output);
+        $this->addFrameworkFolders($path, $output);
 
         $this->renamePublic($path, $output);
         $this->updateIndex($path, $output);
@@ -374,6 +375,30 @@ PHP;
         $output->write("<fg=gray>➜</> Creating <options=bold>bootstrap/app.php</> … ");
         file_put_contents($appPath, $contents);
         $output->writeln('<fg=green>done</>');
+    }
+
+    private function addFrameworkFolders(string $path, OutputInterface $output): void
+    {
+        $dirs = [
+            'storage/framework' => false,
+            'storage/framework/cache' => true,
+            'storage/framework/sessions' => true,
+            'storage/framework/views' => true,
+        ];
+
+        foreach ($dirs as $dir => $addGitIgnore) {
+            $dirPath = "$path/$dir";
+
+            if (! file_exists($dirPath)) {
+                $output->write("<fg=gray>➜</> Creating <options=bold>$dir</> … ");
+                mkdir($dirPath);
+                $output->writeln('<fg=green>done</>');
+            }
+
+            if ($addGitIgnore && !file_exists("$path/$dir/.gitignore")) {
+                file_put_contents("$path/$dir/.gitignore", "*\n!.gitignore");
+            }
+        }
     }
 
     private function renamePublic(string $path, OutputInterface $output): void
