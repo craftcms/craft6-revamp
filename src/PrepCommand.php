@@ -153,6 +153,11 @@ class PrepCommand extends Command
         $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
         unset($config['config']['platform']['php']);
 
+        // Otherwise it ends up as `platform: []` which is invalid.
+        if (empty($config['config']['platform'])) {
+            unset($config['config']['platform']);
+        }
+
         if (! isset($config['scripts']['post-autoload-dump'])) {
             $config['scripts']['post-autoload-dump'] = [];
         }
