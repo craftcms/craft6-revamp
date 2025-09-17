@@ -57,7 +57,7 @@ class PrepCommand extends Command
             throw new RuntimeException(sprintf('The project must be running Craft CMS %s or later.', self::MIN_CRAFT_VERSION));
         }
 
-        $output->write('<fg=gray>➜</> Finding the public folder … ');
+        $output->write(PHP_EOL.'<fg=gray>➜</> Finding the public folder … ');
         $this->findPublicPath($path, $output);
         $output->writeln("<fg=green>done (<options=bold>$this->publicPath</>)</>");
 
@@ -65,6 +65,20 @@ class PrepCommand extends Command
             $this->renamePublicPath = confirm(
                 label: sprintf('Would you like to rename <options=bold>%s</> to <options=bold>public</>?', $this->publicPath),
             );
+        } else {
+            $output->write(PHP_EOL);
+        }
+
+        $warning = "This script will replace <options=bold>$this->publicPath/index.php</>";
+        if (file_exists("$path/bootstrap.php")) {
+            $warning .= ' and remove <options=bold>bootstrap.php</>';
+        }
+        $warning .= '. Any customizations will be lost.';
+        $this->warning($warning, $output);
+
+        if (!confirm(label: 'Proceed?')) {
+            $output->writeln('  <fg=red>⚠ Cancelled.</>'.PHP_EOL);
+            return self::FAILURE;
         }
 
         $this->updateComposer($composerJsonPath, $output);
@@ -78,21 +92,54 @@ class PrepCommand extends Command
         $this->removeCraft($path, $output);
         $this->removeOldBootstrap($path, $output);
 
-        $output->writeln(PHP_EOL."  <bg=blue;fg=white> INFO </> Finished preparing your project for Craft 6! Now run the following commands to complete the update:".PHP_EOL);
+        $output->write(PHP_EOL);
+        $this->success('Finished preparing your project for Craft 6!', $output);
+
+        $steps = [];
+
+        $generalConfigPath = "$path/config/general.php";
+        if (file_exists($generalConfigPath)) {
+            $generalConfig = file_get_contents($generalConfigPath);
+
+            if ($this->renamePublicPath) {
+                $aliases = collect(['web', 'webroot'])
+                    ->filter(fn(string $alias) => preg_match("/\b@?$alias\b/", $generalConfig))
+                    ->all();
+
+                if (!empty($aliases)) {
+                    $steps[] = sprintf(
+                        'Update the %s %s in <options=bold>config/general.php</>',
+                        implode(' and ', array_map(fn(string $alias) => "<options=bold>@$alias</>", $aliases)),
+                        count($aliases) === 1 ? 'alias' : 'aliases',
+                    );
+                }
+            }
+
+            $deprecatedSettings = collect(['omitScriptNameInUrls', 'pathParam'])
+                ->filter(fn(string $setting) => preg_match("/\b$setting\b/", $generalConfig))
+                ->all();
+
+            if (!empty($deprecatedSettings)) {
+                $steps[] = sprintf(
+                    'Remove %s from <options=bold>config/general.php</>',
+                    implode(' and ', array_map(fn(string $setting) => "<options=bold>$setting</>", $deprecatedSettings)),
+                );
+            }
+        }
 
         if ($this->isDdev($path)) {
-            $output->writeln("<fg=gray>➜</> <options=bold>ddev restart</>");
+            $steps[] = "Run <options=bold>ddev restart</>";
         }
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
-        $output->writeln("<fg=gray>➜</> <options=bold>{$ddevPrefix}composer update</>");
-        $output->writeln("<fg=gray>➜</> <options=bold>{$ddevPrefix}php artisan vendor:publish --tag=craftcms</>");
+        $steps[] = "Run <options=bold>{$ddevPrefix}composer update</>";
+        $steps[] = "Run <options=bold>{$ddevPrefix}php artisan vendor:publish --tag=craftcms</>";
 
-        $output->writeln(PHP_EOL."  <bg=blue;fg=white> INFO </> You will also need to remove the following config settings from <options=bold>config/general.php</>:".PHP_EOL);
-        $output->writeln('<fg=gray>➜</> <options=bold>omitScriptNameInUrls</>');
-        $output->writeln('<fg=gray>➜</> <options=bold>pathParam</>');
+        $output->writeln('  Next steps:');
+        $this->ol($steps, $output);
+        $output->write(PHP_EOL);
 
-        return 0;
+        return self::SUCCESS;
     }
 
     private function findCraftVersion(string $composerLockPath): ?string
@@ -145,6 +192,78 @@ class PrepCommand extends Command
         }
 
         throw new RuntimeException('No public folder could be found.');
+    }
+
+    private function note(string $type, string $message, OutputInterface $output): void
+    {
+        [$bg, $fg] = match($type) {
+            'info' => ['blue', 'white'],
+            'success' => ['green', 'black'],
+            'warning' => ['red', 'white'],
+            default => ['gray', 'white'],
+        };
+        $label = strtoupper($type);
+
+        $note = "  <bg=$bg;fg=$fg> $label </> ";
+        $prefixLen = strlen($label) + 5;
+        $maxLineLen = 65 - $prefixLen;
+        $words = explode(' ', $message);
+        $lineLen = 0;
+
+        foreach ($words as $word) {
+            $wordLen = strlen(preg_replace('/<.*?>/', '', $word));
+            if ($lineLen !== 0) {
+                // new line?
+                if ($lineLen + $wordLen + 1 > $maxLineLen) {
+                    $note .= PHP_EOL.str_repeat(' ', $prefixLen);
+                    $lineLen = 0;
+                } else {
+                    $note .= ' ';
+                    $lineLen += 1;
+                }
+            }
+
+            $note .= $word;
+            $lineLen += $wordLen;
+        }
+
+        $output->writeln($note.PHP_EOL);
+    }
+
+    private function info(string $message, OutputInterface $output): void
+    {
+        $this->note('info', $message, $output);
+    }
+
+    private function success(string $message, OutputInterface $output): void
+    {
+        $this->note('success', $message, $output);
+    }
+
+    private function warning(string $message, OutputInterface $output): void
+    {
+        $this->note('warning', $message, $output);
+    }
+
+    private function ol(array $items, OutputInterface $output): void
+    {
+        $i = 1;
+        foreach ($items as $item) {
+            $this->li($item, $output, "$i.");
+            $i++;
+        }
+    }
+
+    private function ul(array $items, OutputInterface $output): void
+    {
+        foreach ($items as $item) {
+            $this->li($item, $output);
+        }
+    }
+
+    private function li(string $message, OutputInterface $output, string $bullet = '➜'): void
+    {
+        $output->writeln("  <fg=gray>$bullet</> $message");
     }
 
     private function updateComposer(string $composerJsonPath, OutputInterface $output): void
