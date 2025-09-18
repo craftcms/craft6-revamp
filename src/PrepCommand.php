@@ -87,6 +87,7 @@ class PrepCommand extends Command
         $this->addArtisan($path, $output);
         $this->addBootstrap($path, $output);
         $this->addFrameworkFolders($path, $output);
+        $this->moveConfigDirectory($path, $output);
 
         $this->renamePublic($path, $output);
         $this->updateIndex($path, $output);
@@ -518,6 +519,23 @@ PHP;
                 file_put_contents("$path/$dir/.gitignore", "*\n!.gitignore");
             }
         }
+    }
+
+    private function moveConfigDirectory(string $path, OutputInterface $output): void
+    {
+        $configPath = "$path/config";
+
+        if (! is_dir($configPath)) {
+            return;
+        }
+
+        $output->write('<fg=gray>➜</> Moving <options=bold>config</> to <options=bold>config/craft</> … ');
+
+        rename($configPath, "$path/craft-config");
+        mkdir("$configPath/craft", recursive: true);
+        rename("$path/craft-config", "$path/config/craft");
+
+        $output->writeln('<fg=green>done</>');
     }
 
     private function renamePublic(string $path, OutputInterface $output): void
