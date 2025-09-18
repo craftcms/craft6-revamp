@@ -88,6 +88,7 @@ class PrepCommand extends Command
         $this->addBootstrap($path, $output);
         $this->addFrameworkFolders($path, $output);
         $this->moveConfigDirectory($path, $output);
+        $this->renameTranslations($path, $output);
 
         $this->renamePublic($path, $output);
         $this->updateIndex($path, $output);
@@ -99,7 +100,7 @@ class PrepCommand extends Command
 
         $steps = [];
 
-        $generalConfigPath = "$path/config/general.php";
+        $generalConfigPath = "$path/config/craft/general.php";
         if (file_exists($generalConfigPath)) {
             $generalConfig = file_get_contents($generalConfigPath);
 
@@ -110,7 +111,7 @@ class PrepCommand extends Command
 
                 if (!empty($aliases)) {
                     $steps[] = sprintf(
-                        'Update the %s %s in <options=bold>config/general.php</>',
+                        'Update the %s %s in <options=bold>config/craft/general.php</>',
                         implode(' and ', array_map(fn(string $alias) => "<options=bold>@$alias</>", $aliases)),
                         count($aliases) === 1 ? 'alias' : 'aliases',
                     );
@@ -123,7 +124,7 @@ class PrepCommand extends Command
 
             if (!empty($deprecatedSettings)) {
                 $steps[] = sprintf(
-                    'Remove %s from <options=bold>config/general.php</>',
+                    'Remove %s from <options=bold>config/craft/general.php</>',
                     implode(' and ', array_map(fn(string $setting) => "<options=bold>$setting</>", $deprecatedSettings)),
                 );
             }
@@ -534,6 +535,21 @@ PHP;
         rename($configPath, "$path/craft-config");
         mkdir("$configPath/craft", recursive: true);
         rename("$path/craft-config", "$path/config/craft");
+
+        $output->writeln('<fg=green>done</>');
+    }
+
+    private function renameTranslations(string $path, OutputInterface $output): void
+    {
+        $translationsPath = "$path/translations";
+
+        if (! is_dir($translationsPath)) {
+            return;
+        }
+
+        $output->write('<fg=gray>➜</> Renaming <options=bold>translations</> to <options=bold>lang</> … ');
+
+        rename($translationsPath, "$path/lang");
 
         $output->writeln('<fg=green>done</>');
     }
