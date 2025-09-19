@@ -456,6 +456,10 @@ PHP;
             }
         }
 
+        if (!file_exists("$path/bootstrap/cache/.gitignore")) {
+            file_put_contents("$path/bootstrap/cache/.gitignore", "*\n!.gitignore");
+        }
+
         $appPath = "$path/bootstrap/app.php";
 
         if (file_exists($appPath)) {
