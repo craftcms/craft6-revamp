@@ -1,5 +1,5 @@
 {
-    "name": "craftcms/craft6-prepper",
+    "name": "craftcms/craft6-revamp",
     "description": "Craft 6 project prepper",
     "keywords": [
         "craftcms"
@@ -25,7 +25,7 @@
         "phpunit/phpunit": "^10.4"
     },
     "bin": [
-        "bin/craft6-prep"
+        "bin/craft6-revamp"
     ],
     "autoload": {
         "psr-4": {

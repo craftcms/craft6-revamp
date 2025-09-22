@@ -15,7 +15,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use function Laravel\Prompts\confirm;
 
-class PrepCommand extends Command
+class RevampCommand extends Command
 {
     const MIN_CRAFT_VERSION = '5.8.0';
     const PHP_VERSION = '8.4';
@@ -26,7 +26,7 @@ class PrepCommand extends Command
     protected function configure()
     {
         $this
-            ->setName('prep')
+            ->setName('revamp')
             ->setDescription('Prepares a Craft 5 project for Craft 6')
             ->addArgument('path', InputArgument::OPTIONAL);
     }
