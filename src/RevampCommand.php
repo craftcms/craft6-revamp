@@ -273,6 +273,7 @@ class RevampCommand extends Command
     {
         $config = Json::decodeFromFile($composerJsonPath);
         $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
+        unset($config['config']['require']['vlucas/phpdotenv']);
         unset($config['config']['platform']['php']);
 
         // Otherwise it ends up as `platform: []` which is invalid.
