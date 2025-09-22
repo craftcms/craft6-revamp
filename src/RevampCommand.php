@@ -310,12 +310,30 @@ class RevampCommand extends Command
         $ddevConfigPath = "$path/.ddev/config.yaml";
         $ddevConfig = file_get_contents($ddevConfigPath);
 
+        $this->updateDdevProjectType($ddevConfig, $output);
         $this->updateDdevPhpVersion($ddevConfig, $output);
         $this->updateDdevDocroot($ddevConfig, $output);
 
         $output->write('<fg=gray>➜</> Updating <options=bold>.ddev/config.yaml</> … ');
         file_put_contents($ddevConfigPath, $ddevConfig);
         $output->writeln('<fg=green>done</>');
+    }
+
+    private function updateDdevProjectType(string &$ddevConfig, OutputInterface $output): void
+    {
+        if (! preg_match('/^type:\s+[\'"]?([\w\d]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
+            $output->writeln('<fg=gray>➜</> <fg=red>No project type detected in .ddev/config.yaml.</>');
+            return;
+        }
+
+        if ($match[1][0] === 'laravel') {
+            return;
+        }
+
+        // use str_replace() instead of symfony/yaml so we don't lose the comments
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
+            'type: laravel' .
+            substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
     }
 
     private function updateDdevPhpVersion(string &$ddevConfig, OutputInterface $output): void
