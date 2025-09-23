@@ -5,8 +5,15 @@
 To install, run the following command:
 
 ```sh
-composer global require craftcms/craft6-revamp
+composer global require craftcms/craft6-revamp -W
 ```
+
+> [!TIP]
+> If you get a dependency conflict error, try running the following command first:
+> 
+> ```sh
+> composer global update
+> ```
 
 ## Usage
 
