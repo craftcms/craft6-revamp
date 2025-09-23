@@ -136,7 +136,7 @@ class RevampCommand extends Command
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
         $steps[] = "Run <options=bold>{$ddevPrefix}composer update</>";
-        $steps[] = "Run <options=bold>{$ddevPrefix}php artisan vendor:publish --tag=craftcms</>";
+        $steps[] = "Run <options=bold>{$ddevPrefix}artisan vendor:publish --tag=craftcms</>";
 
         $output->writeln('  Next steps:');
         $this->ol($steps, $output);
