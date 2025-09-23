@@ -272,7 +272,15 @@ class RevampCommand extends Command
     private function updateComposer(string $composerJsonPath, OutputInterface $output): void
     {
         $config = Json::decodeFromFile($composerJsonPath);
+
         $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
+
+        if (isset($config['require-dev']['craftcms/generator'])) {
+            $config['require-dev']['craftcms/generator'] = '3.x-dev';
+        } elseif (isset($config['require']['craftcms/generator'])) {
+            $config['require']['craftcms/generator'] = '3.x-dev';
+        }
+
         unset($config['require']['vlucas/phpdotenv']);
         unset($config['config']['platform']['php']);
 
