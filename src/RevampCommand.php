@@ -274,6 +274,7 @@ class RevampCommand extends Command
         $config = Json::decodeFromFile($composerJsonPath);
 
         $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
+        $config['require']['craftcms/yii2-adapter'] = '6.x-dev as 5.8.0';
 
         if (isset($config['require-dev']['craftcms/generator'])) {
             $config['require-dev']['craftcms/generator'] = '3.x-dev';
