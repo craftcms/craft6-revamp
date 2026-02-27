@@ -28,7 +28,7 @@ A few manual follow-up actions are then suggested, when relevant to your project
 
 </details>
 
-> [!DANGER]  
+> [!CAUTION]
 > Make sure you have a way to restore your project, if you encounter issues.
 > _Use this tool at your own risk_, and _do not run this on your live server_!
 > It is only intended to upgrade projects in a development environment.
