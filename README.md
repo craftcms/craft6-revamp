@@ -1,6 +1,40 @@
-# craft6-revamp
+# Craft 6 Upgrade Tool
+
+This CLI tool automates a number of steps in the Craft 6 upgrade process.
+
+> [!TIP]
+> Keep an eye on our [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/) article for complete upgrade instructions, as the first Alpha release approaches!
+
+<details>
+<summary>Summary of Actions</summary>
+
+The following tasks are handled by the script.
+A description of each action is output to the console, followed by a confirmation or error message.
+
+You will be prompted before the tool takes potentially destructive actions.
+
+- Verifies you’re running a supported version of Craft 5;
+- Updates Composer dependencies for Craft and the Generator, adds [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), and removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv);
+- Switches the DDEV project type to `laravel`, and updates the project’s PHP version;
+- Renames a handful of environment variables to match Laravel conventions;
+- Creates the `artisan` CLI entrypoint, `bootstrap/` files, and replaces `index.php`;
+- Scaffolds Laravel’s `framework/` directory;
+- Moves existing Craft-specific configuration files into `config/craft/`;
+- Renames the web root to `public/`;
+- Renames the `translations/` directory to [`lang/`](https://laravel.com/docs/12.x/localization);
+- Removes `boostrap.php`;
+
+A few manual follow-up actions are then suggested, when relevant to your project.
+
+</details>
+
+> [!DANGER]  
+> Make sure you have a way to restore your project, if you encounter issues.
+> _Use this tool at your own risk_, and _do not run this on your live server_!
+> It is only intended to upgrade projects in a development environment.
 
 ## Installation
+
 
 To install, run the following command:
 
@@ -17,8 +51,22 @@ composer global require craftcms/craft6-revamp -W
 
 ## Usage
 
-To prepare a Craft 5 project for Craft 6, `cd` to it in your terminal and run the following command:
+To prepare an existing Craft 5 project for Craft 6, run the tool from its root directory:
 
 ```sh
 craft6-revamp
+```
+
+The tool will exit if it can’t find `composer.json` and `composer.lock` files, or if it can’t confidently determine the project is compatible.
+
+If the command doesn’t resolve (say, because your user’s Composer `bin` directory is not in your `$PATH`), you can run the command directly:
+
+```sh
+~/.composer/vendor/bin/craft6-revamp
+```
+
+You may also pass a `--path`, if you have many projects to update:
+
+```sh
+craft6-revamp --path /path/to/project
 ```
