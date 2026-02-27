@@ -17,7 +17,7 @@ You will be prompted before the tool takes potentially destructive actions.
 - Updates Composer dependencies for Craft and the Generator, adds [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), and removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv);
 - Switches the DDEV project type to `laravel`, and updates the project’s PHP version;
 - Renames a handful of environment variables to match Laravel conventions;
-- Creates the `artisan` CLI entrypoint, `bootstrap/` files, and replaces `index.php`;
+- Creates the `artisan` CLI entrypoint, Laravel’s `bootstrap/` files, and replaces `index.php`;
 - Scaffolds Laravel’s `framework/` directory;
 - Moves existing Craft-specific configuration files into `config/craft/`;
 - Renames the web root to `public/`;
@@ -35,19 +35,20 @@ A few manual follow-up actions are then suggested, when relevant to your project
 
 ## Installation
 
-
-To install, run the following command:
+The tool is installed as a [global](https://getcomposer.org/doc/03-cli.md#global) Composer package, on any system running PHP 8.2 or newer.
 
 ```sh
 composer global require craftcms/craft6-revamp -W
 ```
 
-> [!TIP]
-> If you get a dependency conflict error, try running the following command first:
-> 
-> ```sh
-> composer global update
-> ```
+DDEV or Docker users: it is safe to do this from any directory on your host machine.
+It should _not_ alter your project’s `composer.json`.
+
+If you get a dependency conflict error, try running the following command first:
+
+```sh
+composer global update
+```
 
 ## Usage
 
