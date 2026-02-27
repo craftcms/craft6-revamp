@@ -5,8 +5,8 @@ This CLI tool automates a number of steps in the Craft 6 upgrade process.
 > [!TIP]
 > Keep an eye on our [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/) article for complete upgrade instructions, as the first Alpha release approaches!
 
-<details>
-<summary>Summary of Actions</summary>
+<details open>
+<summary><strong>Summary of actions</strong> 🪄</summary>
 
 The following tasks are handled by the script.
 A description of each action is output to the console, followed by a confirmation or error message.
@@ -30,7 +30,9 @@ A few manual follow-up actions are then suggested, when relevant to your project
 
 > [!CAUTION]
 > Make sure you have a way to restore your project, if you encounter issues.
+> 
 > _Use this tool at your own risk_, and _do not run this on your live server_!
+> 
 > It is only intended to upgrade projects in a development environment.
 
 ## Installation
