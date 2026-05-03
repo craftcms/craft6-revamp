@@ -131,7 +131,7 @@ class RevampCommand extends Command
         }
 
         if ($this->isDdev($path)) {
-            $steps[] = "Run <options=bold>ddev restart</>";
+            $steps[] = "Run <options=bold>ddev restart</> to pick up the new project type and configuration";
         }
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
@@ -640,6 +640,7 @@ PHP;
         $output->write("<fg=gray>➜</> Removing the <options=bold>craft</> executable … ");
         unlink($craftPath);
         $output->writeln('<fg=green>done</>');
+        $output->writeln('  <fg=gray>(This will be re-created the first time you publish assets with Laravel!)</>');
     }
 
     private function removeOldBootstrap(string $path, OutputInterface $output): void
