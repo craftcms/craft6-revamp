@@ -3,7 +3,7 @@
 This CLI tool automates a number of steps in the Craft 6 upgrade process.
 
 > [!TIP]
-> Keep an eye on our [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/) article for complete upgrade instructions, as the first Alpha release approaches!
+> Keep an eye on our [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/laravel-transition-planning) article for complete upgrade instructions, as the first Alpha release approaches!
 
 <details open>
 <summary><strong>Summary of actions</strong> 🪄</summary>
