@@ -17,8 +17,8 @@ use function Laravel\Prompts\confirm;
 
 class RevampCommand extends Command
 {
-    const MIN_CRAFT_VERSION = '5.8.0';
-    const PHP_VERSION = '8.4';
+    const MIN_CRAFT_VERSION = '5.9.0';
+    const PHP_VERSION = '8.5';
 
     private string $publicPath;
     private bool $renamePublicPath = false;
@@ -273,8 +273,8 @@ class RevampCommand extends Command
     {
         $config = Json::decodeFromFile($composerJsonPath);
 
-        $config['require']['craftcms/cms'] = '6.x-dev as 5.8.0';
-        $config['require']['craftcms/yii2-adapter'] = '6.x-dev as 5.8.0';
+        $config['require']['craftcms/cms'] = '6.x-dev as 5.9.0';
+        $config['require']['craftcms/yii2-adapter'] = '6.x-dev as 5.9.0';
 
         if (isset($config['require-dev']['craftcms/generator'])) {
             $config['require-dev']['craftcms/generator'] = '3.x-dev';
