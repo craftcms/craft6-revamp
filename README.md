@@ -21,8 +21,9 @@ You will be prompted before the tool takes potentially destructive actions.
 - Scaffolds Laravel’s `framework/` directory;
 - Moves existing Craft-specific configuration files into `config/craft/`;
 - Renames the web root to `public/`;
-- Renames the `translations/` directory to [`lang/`](https://laravel.com/docs/12.x/localization);
-- Removes `boostrap.php`;
+- Removes the legacy `craft` CLI entrypoint (this will get re-created the first time you publish vendor assets from Laravel);
+- Renames the `translations/` directory to [`lang/`](https://laravel.com/docs/13.x/localization);
+- Removes the legacy `boostrap.php` file;
 
 A few manual follow-up actions are then suggested, when relevant to your project.
 
