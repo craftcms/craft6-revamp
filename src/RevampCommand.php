@@ -562,11 +562,17 @@ PHP;
             return;
         }
 
+        $targetPath = "$configPath/craft";
+
+        if (is_dir($targetPath)) {
+            return;
+        }
+
         $output->write('<fg=gray>➜</> Moving <options=bold>config</> to <options=bold>config/craft</> … ');
 
         rename($configPath, "$path/craft-config");
-        mkdir("$configPath/craft", recursive: true);
-        rename("$path/craft-config", "$path/config/craft");
+        mkdir($targetPath, recursive: true);
+        rename("$path/craft-config", $targetPath);
 
         $output->writeln('<fg=green>done</>');
     }
