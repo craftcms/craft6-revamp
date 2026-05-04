@@ -137,6 +137,7 @@ class RevampCommand extends Command
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
         $steps[] = "Run <options=bold>{$ddevPrefix}composer update</>";
         $steps[] = "Run <options=bold>{$ddevPrefix}artisan craft:setup:publish</>";
+        $steps[] = "Run <options=bold>{$ddevPrefix}artisan key:generate</>";
 
         $output->writeln('  Next steps:');
         $this->ol($steps, $output);
@@ -401,6 +402,8 @@ class RevampCommand extends Command
             'CRAFT_DB_DATABASE' => 'DB_DATABASE',
             'CRAFT_DB_SCHEMA' => 'DB_SCHEMA',
             'CRAFT_DB_TABLE_PREFIX' => 'DB_TABLE_PREFIX',
+            'CRAFT_DEV_MODE' => 'APP_DEBUG',
+            'CRAFT_SECURITY_KEY' => false,
         ];
 
         foreach ($envPaths as $envPath) {
@@ -417,11 +420,19 @@ class RevampCommand extends Command
             foreach ($map as $old => $new) {
                 if (isset($vars[$old])) {
                     $remove[] = $old;
-                    $add[$new] = $vars[$old];
+                    if ($new !== false) {
+                        $add[$new] = $vars[$old];
+                    }
                 }
             }
 
-            if (!empty($remove)) {
+            if ($envPath === '.env') {
+                $add['CACHE_STORE'] = 'file';
+                $add['SESSION_DRIVER'] = 'file';
+                $add['APP_KEY'] = '';
+            }
+
+            if (!empty($remove) || !empty($add)) {
                 $output->write("<fg=gray>➜</> Updating variables in <options=bold>$envPath</> … ");
                 foreach ($remove as $name) {
                     Env::removeVariable($name, $fullPath);
