@@ -298,6 +298,7 @@ class RevampCommand extends Command
         $scripts = [
             'Illuminate\Foundation\ComposerScripts::postAutoloadDump',
             '@php artisan package:discover --ansi',
+            '@php artisan craft:setup:publish --ansi',
         ];
 
         foreach ($scripts as $script) {
