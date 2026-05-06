@@ -2,28 +2,41 @@
 
 namespace CraftCms\Prepper\Console;
 
+use Closure;
 use Composer\Semver\Semver;
 use CraftCms\Prepper\Console\Support\Env;
 use CraftCms\Prepper\Console\Support\Json;
 use Dotenv\Dotenv;
+use Illuminate\Support\Str;
+use Laravel\Prompts\Prompt;
+use Laravel\Prompts\Support\Logger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\outro;
+use function Laravel\Prompts\table;
+use function Laravel\Prompts\task;
+use function Laravel\Prompts\title;
+use function Laravel\Prompts\warning;
 
 class RevampCommand extends Command
 {
     const MIN_CRAFT_VERSION = '5.9.0';
+
     const PHP_VERSION = '8.5';
 
     private string $publicPath;
+
     private bool $renamePublicPath = false;
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('revamp')
@@ -33,70 +46,82 @@ class RevampCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        Prompt::setOutput($output);
+
+        title('Craft 6 Prepper');
+
         $path = str_replace('\\', '/', $input->getArgument('path') ?? getcwd());
         $composerJsonPath = "$path/composer.json";
+
         if (! file_exists($composerJsonPath)) {
-            throw new RuntimeException("No composer.json file found at $path.");
+            error("No composer.json file found at $path.");
+
+            return self::FAILURE;
         }
 
         $composerLockPath = "$path/composer.lock";
         if (! file_exists($composerLockPath)) {
-            throw new RuntimeException("No composer.lock file found at $path. Run `composer install` first.");
+            error("No composer.lock file found at $path. Run `composer install` first.");
+
+            return self::FAILURE;
         }
 
         $craftVersion = $this->findCraftVersion($composerLockPath);
 
         if (! $craftVersion) {
-            throw new RuntimeException("No Craft project found at $path.");
+            error("No Craft project found at $path.");
+
+            return self::FAILURE;
         }
 
         if (
             ! preg_match('/^[\d\.]+$/', $craftVersion) ||
             ! Semver::satisfies($craftVersion, sprintf('^%s', self::MIN_CRAFT_VERSION))
         ) {
-            throw new RuntimeException(sprintf('The project must be running Craft CMS %s or later.', self::MIN_CRAFT_VERSION));
-        }
+            error(sprintf('The project must be running Craft CMS %s or later.', self::MIN_CRAFT_VERSION));
 
-        $output->write(PHP_EOL.'<fg=gray>➜</> Finding the public folder … ');
-        $this->findPublicPath($path, $output);
-        $output->writeln("<fg=green>done (<options=bold>$this->publicPath</>)</>");
-
-        if ($this->publicPath !== 'public' && ! file_exists("$path/public")) {
-            $this->renamePublicPath = confirm(
-                label: sprintf('Would you like to rename <options=bold>%s</> to <options=bold>public</>?', $this->publicPath),
-            );
-        } else {
-            $output->write(PHP_EOL);
-        }
-
-        $warning = "This script will replace <options=bold>$this->publicPath/index.php</>";
-        if (file_exists("$path/bootstrap.php")) {
-            $warning .= ' and remove <options=bold>bootstrap.php</>';
-        }
-        $warning .= '. Any customizations will be lost.';
-        $this->warning($warning, $output);
-
-        if (!confirm(label: 'Proceed?')) {
-            $output->writeln('  <fg=red>⚠ Cancelled.</>'.PHP_EOL);
             return self::FAILURE;
         }
 
-        $this->updateComposer($composerJsonPath, $output);
-        $this->updateDdevConfig($path, $output);
-        $this->updateEnvVars($path, $output);
-        $this->addArtisan($path, $output);
-        $this->addBootstrap($path, $output);
-        $this->addFrameworkFolders($path, $output);
-        $this->moveConfigDirectory($path, $output);
-        $this->renameTranslations($path, $output);
+        if ($this->findPublicPath($path) === self::FAILURE) {
+            return self::FAILURE;
+        }
 
-        $this->renamePublic($path, $output);
-        $this->updateIndex($path, $output);
-        $this->removeCraft($path, $output);
-        $this->removeOldBootstrap($path, $output);
+        if ($this->publicPath !== 'public' && ! file_exists("$path/public")) {
+            $this->renamePublicPath = confirm(
+                label: "Would you like to rename {$this->publicPath} to public?",
+            );
+        }
 
-        $output->write(PHP_EOL);
-        $this->success('Finished preparing your project for Craft 6!', $output);
+        $warning = "This script will replace {$this->publicPath}/index.php";
+        if (file_exists("$path/bootstrap.php")) {
+            $warning .= ' and remove bootstrap.php';
+        }
+
+        warning($warning);
+
+        if (! confirm(label: 'Proceed?', hint: 'Any customizations will be lost.')) {
+            warning('Cancelled.');
+
+            return self::FAILURE;
+        }
+
+        $this->runSteps([
+            'Updating composer.json' => fn (Logger $logger) => $this->updateComposer($logger, $composerJsonPath),
+            'Updating DDEV configuration' => fn (Logger $logger) => $this->updateDdevConfig($logger, $path),
+            'Updating environment variables' => fn (Logger $logger) => $this->updateEnvVars($logger, $path),
+            'Creating the artisan executable' => fn (Logger $logger) => $this->addArtisan($logger, $path),
+            'Creating Laravel bootstrap files' => fn (Logger $logger) => $this->addBootstrap($logger, $path),
+            'Creating framework storage folders' => fn (Logger $logger) => $this->addFrameworkFolders($logger, $path),
+            'Moving Craft config directory' => fn (Logger $logger) => $this->moveConfigDirectory($logger, $path),
+            'Renaming translations directory' => fn (Logger $logger) => $this->renameTranslations($logger, $path),
+            'Renaming the public folder' => fn (Logger $logger) => $this->renamePublic($logger, $path),
+            "Updating {$this->publicPath}/index.php" => fn (Logger $logger) => $this->updateIndex($logger, $path),
+            'Removing the Craft executable' => fn (Logger $logger) => $this->removeCraft($logger, $path),
+            'Removing old bootstrap.php' => fn (Logger $logger) => $this->removeOldBootstrap($logger, $path),
+        ]);
+
+        outro('Finished preparing your project for Craft 6!');
 
         $steps = [];
 
@@ -106,32 +131,32 @@ class RevampCommand extends Command
 
             if ($this->renamePublicPath) {
                 $aliases = collect(['web', 'webroot'])
-                    ->filter(fn(string $alias) => preg_match("/\b@?$alias\b/", $generalConfig))
+                    ->filter(fn (string $alias) => preg_match("/\b@?$alias\b/", $generalConfig))
                     ->all();
 
-                if (!empty($aliases)) {
+                if (! empty($aliases)) {
                     $steps[] = sprintf(
-                        'Update the %s %s in <options=bold>config/craft/general.php</>',
-                        implode(' and ', array_map(fn(string $alias) => "<options=bold>@$alias</>", $aliases)),
+                        'Update the %s %s in config/craft/general.php',
+                        implode(' and ', array_map(fn (string $alias) => "@$alias", $aliases)),
                         count($aliases) === 1 ? 'alias' : 'aliases',
                     );
                 }
             }
 
             $deprecatedSettings = collect(['omitScriptNameInUrls', 'pathParam'])
-                ->filter(fn(string $setting) => preg_match("/\b$setting\b/", $generalConfig))
+                ->filter(fn (string $setting) => preg_match("/\b$setting\b/", $generalConfig))
                 ->all();
 
-            if (!empty($deprecatedSettings)) {
+            if (! empty($deprecatedSettings)) {
                 $steps[] = sprintf(
-                    'Remove %s from <options=bold>config/craft/general.php</>',
-                    implode(' and ', array_map(fn(string $setting) => "<options=bold>$setting</>", $deprecatedSettings)),
+                    'Remove `%s` from config/craft/general.php',
+                    implode(' and ', array_map(fn (string $setting) => $setting, $deprecatedSettings)),
                 );
             }
         }
 
         if ($this->isDdev($path)) {
-            $steps[] = "Run <options=bold>ddev restart</> to pick up the new project type and configuration";
+            $steps[] = 'Run ddev restart to pick up the new project type and configuration';
         }
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
@@ -139,9 +164,13 @@ class RevampCommand extends Command
         $steps[] = "Run <options=bold>{$ddevPrefix}artisan craft:setup:publish</>";
         $steps[] = "Run <options=bold>{$ddevPrefix}artisan key:generate</>";
 
-        $output->writeln('  Next steps:');
-        $this->ol($steps, $output);
-        $output->write(PHP_EOL);
+        info('Next steps');
+        table(
+            ['#', 'Step'],
+            collect($steps)
+                ->map(fn (string $step, int $index) => [$index + 1, $step])
+                ->all(),
+        );
 
         return self::SUCCESS;
     }
@@ -154,10 +183,21 @@ class RevampCommand extends Command
                 return $package['version'];
             }
         }
+
         return null;
     }
 
-    private function findPublicPath(string $path, OutputInterface $output): void
+    /**
+     * @param  array<string, Closure(Logger $logger): void>  $steps
+     */
+    private function runSteps(array $steps): void
+    {
+        foreach ($steps as $label => $step) {
+            task(Str::finish($label, '...'), fn (Logger $logger) => $step($logger), keepSummary: true);
+        }
+    }
+
+    private function findPublicPath(string $path): int
     {
         // first check the usual suspects
         $testPaths = [
@@ -170,7 +210,8 @@ class RevampCommand extends Command
         foreach ($testPaths as $testPath) {
             if (file_exists("$path/$testPath/index.php")) {
                 $this->publicPath = $testPath;
-                return;
+
+                return self::SUCCESS;
             }
         }
 
@@ -191,86 +232,17 @@ class RevampCommand extends Command
 
             if (file_exists("$dirPath/index.php")) {
                 $this->publicPath = substr($dirPath, strlen($path) + 1);
-                return;
+
+                return self::SUCCESS;
             }
         }
 
-        throw new RuntimeException('No public folder could be found.');
+        error('No public folder could be found.');
+
+        return self::FAILURE;
     }
 
-    private function note(string $type, string $message, OutputInterface $output): void
-    {
-        [$bg, $fg] = match($type) {
-            'info' => ['blue', 'white'],
-            'success' => ['green', 'black'],
-            'warning' => ['red', 'white'],
-            default => ['gray', 'white'],
-        };
-        $label = strtoupper($type);
-
-        $note = "  <bg=$bg;fg=$fg> $label </> ";
-        $prefixLen = strlen($label) + 5;
-        $maxLineLen = 65 - $prefixLen;
-        $words = explode(' ', $message);
-        $lineLen = 0;
-
-        foreach ($words as $word) {
-            $wordLen = strlen(preg_replace('/<.*?>/', '', $word));
-            if ($lineLen !== 0) {
-                // new line?
-                if ($lineLen + $wordLen + 1 > $maxLineLen) {
-                    $note .= PHP_EOL.str_repeat(' ', $prefixLen);
-                    $lineLen = 0;
-                } else {
-                    $note .= ' ';
-                    $lineLen += 1;
-                }
-            }
-
-            $note .= $word;
-            $lineLen += $wordLen;
-        }
-
-        $output->writeln($note.PHP_EOL);
-    }
-
-    private function info(string $message, OutputInterface $output): void
-    {
-        $this->note('info', $message, $output);
-    }
-
-    private function success(string $message, OutputInterface $output): void
-    {
-        $this->note('success', $message, $output);
-    }
-
-    private function warning(string $message, OutputInterface $output): void
-    {
-        $this->note('warning', $message, $output);
-    }
-
-    private function ol(array $items, OutputInterface $output): void
-    {
-        $i = 1;
-        foreach ($items as $item) {
-            $this->li($item, $output, "$i.");
-            $i++;
-        }
-    }
-
-    private function ul(array $items, OutputInterface $output): void
-    {
-        foreach ($items as $item) {
-            $this->li($item, $output);
-        }
-    }
-
-    private function li(string $message, OutputInterface $output, string $bullet = '➜'): void
-    {
-        $output->writeln("  <fg=gray>$bullet</> $message");
-    }
-
-    private function updateComposer(string $composerJsonPath, OutputInterface $output): void
+    private function updateComposer(Logger $logger, string $composerJsonPath): void
     {
         $config = Json::decodeFromFile($composerJsonPath);
 
@@ -282,6 +254,7 @@ class RevampCommand extends Command
         } elseif (isset($config['require']['craftcms/generator'])) {
             $config['require']['craftcms/generator'] = '3.x-dev';
         }
+        $logger->success('Updated dependencies');
 
         unset($config['require']['vlucas/phpdotenv']);
         unset($config['config']['platform']['php']);
@@ -290,6 +263,7 @@ class RevampCommand extends Command
         if (empty($config['config']['platform'])) {
             unset($config['config']['platform']);
         }
+        $logger->success('Removed platform.php config');
 
         if (! isset($config['scripts']['post-autoload-dump'])) {
             $config['scripts']['post-autoload-dump'] = [];
@@ -302,83 +276,96 @@ class RevampCommand extends Command
         ];
 
         foreach ($scripts as $script) {
-            if (!in_array($script, $config['scripts']['post-autoload-dump'])) {
+            if (! in_array($script, $config['scripts']['post-autoload-dump'])) {
                 $config['scripts']['post-autoload-dump'][] = $script;
             }
         }
+        $logger->success('Added post-autoload-dump scripts');
 
-        $output->write('<fg=gray>➜</> Updating <options=bold>composer.json</> … ');
         Json::encodeToFile($composerJsonPath, $config);
-        $output->writeln('<fg=green>done</>');
+        $logger->success('composer.json updated');
     }
 
-    private function updateDdevConfig(string $path, OutputInterface $output): void
+    private function updateDdevConfig(Logger $logger, string $path): void
     {
         if (! $this->isDdev($path)) {
-            $output->writeln('<fg=gray>➜</> <fg=yellow>No .ddev/config.yaml file detected.</>');
+            $logger->warning('No .ddev/config.yaml file detected.');
+
             return;
         }
 
         $ddevConfigPath = "$path/.ddev/config.yaml";
         $ddevConfig = file_get_contents($ddevConfigPath);
 
-        $this->updateDdevProjectType($ddevConfig, $output);
-        $this->updateDdevPhpVersion($ddevConfig, $output);
-        $this->updateDdevDocroot($ddevConfig, $output);
+        $this->updateDdevProjectType($logger, $ddevConfig);
+        $this->updateDdevPhpVersion($logger, $ddevConfig);
+        $this->updateDdevDocroot($logger, $ddevConfig);
 
-        $output->write('<fg=gray>➜</> Updating <options=bold>.ddev/config.yaml</> … ');
         file_put_contents($ddevConfigPath, $ddevConfig);
-        $output->writeln('<fg=green>done</>');
+        $logger->success('.ddev/config.yaml updated');
     }
 
-    private function updateDdevProjectType(string &$ddevConfig, OutputInterface $output): void
+    private function updateDdevProjectType(Logger $logger, string &$ddevConfig): void
     {
         if (! preg_match('/^type:\s+[\'"]?([\w\d]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
-            $output->writeln('<fg=gray>➜</> <fg=red>No project type detected in .ddev/config.yaml.</>');
+            $logger->warning('No project type detected in .ddev/config.yaml.');
+
             return;
         }
 
         if ($match[1][0] === 'laravel') {
+            $logger->success('Project type already set to Laravel.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            'type: laravel' .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            'type: laravel'.
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
+        $logger->success('Project type updated.');
     }
 
-    private function updateDdevPhpVersion(string &$ddevConfig, OutputInterface $output): void
+    private function updateDdevPhpVersion(Logger $logger, string &$ddevConfig): void
     {
         if (! preg_match('/^php_version:\s+[\'"]?([\d\.]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
-            $output->writeln('<fg=gray>➜</> <fg=red>No php_version detected in .ddev/config.yaml.</>');
+            $logger->warning('No php_version detected in .ddev/config.yaml.');
+
             return;
         }
 
         if ($match[1][0] === self::PHP_VERSION) {
+            $logger->success('PHP version already set to '.self::PHP_VERSION.'.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            sprintf('php_version: "%s"', self::PHP_VERSION) .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            sprintf('php_version: "%s"', self::PHP_VERSION).
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
+
+        $logger->success('PHP version updated to '.self::PHP_VERSION.'.');
     }
 
-    private function updateDdevDocroot(string &$ddevConfig, OutputInterface $output): void
+    private function updateDdevDocroot(Logger $logger, string &$ddevConfig): void
     {
         if (! $this->renamePublicPath) {
             return;
         }
+
         if (! preg_match('/^docroot:\s+[\'"]?([\w+\/]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
-            $output->writeln('<fg=gray>➜</> <fg=red>No docroot detected in .ddev/config.yaml.</>');
+            $logger->warning('No docroot detected in .ddev/config.yaml.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            'docroot: public' .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            'docroot: public'.
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
+
+        $logger->success('Docroot updated in .ddev/config.yaml.');
     }
 
     private function isDdev(string $path): bool
@@ -386,7 +373,7 @@ class RevampCommand extends Command
         return file_exists("$path/.ddev/config.yaml");
     }
 
-    private function updateEnvVars(string $path, OutputInterface $output): void
+    private function updateEnvVars(Logger $logger, string $path): void
     {
         $envPaths = collect([
             '.ddev/.env',
@@ -433,22 +420,24 @@ class RevampCommand extends Command
                 $add['APP_KEY'] = '';
             }
 
-            if (!empty($remove) || !empty($add)) {
-                $output->write("<fg=gray>➜</> Updating variables in <options=bold>$envPath</> … ");
+            if (! empty($remove) || ! empty($add)) {
                 foreach ($remove as $name) {
                     Env::removeVariable($name, $fullPath);
                 }
-                Env::writeVariables($add, $fullPath);
-                $output->writeln('<fg=green>done</>');
+                Env::writeVariables($add, $fullPath, true);
             }
         }
+
+        $logger->success('Updated .env variables');
     }
 
-    private function addArtisan(string $path, OutputInterface $output): void
+    private function addArtisan(Logger $logger, string $path): void
     {
         $artisanPath = "$path/artisan";
 
         if (file_exists($artisanPath)) {
+            $logger->success('Artisan executable already exists.');
+
             return;
         }
 
@@ -474,13 +463,13 @@ exit(\$status);
 
 PHP;
 
-        $output->write("<fg=gray>➜</> Creating the <options=bold>artisan</> executable … ");
         file_put_contents($artisanPath, $contents);
         @chmod($artisanPath, 0755);
-        $output->writeln('<fg=green>done</>');
+
+        $logger->success('Added Artisan executable.');
     }
 
-    private function addBootstrap(string $path, OutputInterface $output): void
+    private function addBootstrap(Logger $logger, string $path): void
     {
         $dirs = [
             'bootstrap',
@@ -490,19 +479,19 @@ PHP;
         foreach ($dirs as $dir) {
             $dirPath = "$path/$dir";
             if (! file_exists($dirPath)) {
-                $output->write("<fg=gray>➜</> Creating <options=bold>$dir</> … ");
-                mkdir($dirPath);
-                $output->writeln('<fg=green>done</>');
+                mkdir($dirPath, recursive: true);
             }
         }
 
-        if (!file_exists("$path/bootstrap/cache/.gitignore")) {
+        if (! file_exists("$path/bootstrap/cache/.gitignore")) {
             file_put_contents("$path/bootstrap/cache/.gitignore", "*\n!.gitignore");
         }
 
         $appPath = "$path/bootstrap/app.php";
 
         if (file_exists($appPath)) {
+            $logger->success('bootstrap/app.php already exists.');
+
             return;
         }
 
@@ -532,17 +521,17 @@ PHP;
 PHP;
         }
 
-        $contents .= <<<PHP
+        $contents .= <<<'PHP'
     ->create();
 
 PHP;
 
-        $output->write("<fg=gray>➜</> Creating <options=bold>bootstrap/app.php</> … ");
         file_put_contents($appPath, $contents);
-        $output->writeln('<fg=green>done</>');
+
+        $logger->success('Laravel Bootstrap created.');
     }
 
-    private function addFrameworkFolders(string $path, OutputInterface $output): void
+    private function addFrameworkFolders(Logger $logger, string $path): void
     {
         $dirs = [
             'storage/framework' => false,
@@ -555,68 +544,73 @@ PHP;
             $dirPath = "$path/$dir";
 
             if (! file_exists($dirPath)) {
-                $output->write("<fg=gray>➜</> Creating <options=bold>$dir</> … ");
-                mkdir($dirPath);
-                $output->writeln('<fg=green>done</>');
+                mkdir($dirPath, recursive: true);
             }
 
-            if ($addGitIgnore && !file_exists("$path/$dir/.gitignore")) {
+            if ($addGitIgnore && ! file_exists("$path/$dir/.gitignore")) {
                 file_put_contents("$path/$dir/.gitignore", "*\n!.gitignore");
             }
+
+            $logger->success("Created $dir");
         }
     }
 
-    private function moveConfigDirectory(string $path, OutputInterface $output): void
+    private function moveConfigDirectory(Logger $logger, string $path): void
     {
         $configPath = "$path/config";
 
         if (! is_dir($configPath)) {
+            $logger->warning('No config directory found at /config.');
+
             return;
         }
 
         $targetPath = "$configPath/craft";
 
         if (is_dir($targetPath)) {
+            $logger->success('Config directory at /config/craft exists.');
+
             return;
         }
-
-        $output->write('<fg=gray>➜</> Moving <options=bold>config</> to <options=bold>config/craft</> … ');
 
         rename($configPath, "$path/craft-config");
         mkdir($targetPath, recursive: true);
         rename("$path/craft-config", $targetPath);
 
-        $output->writeln('<fg=green>done</>');
+        $logger->success('Config created directory at /config/craft.');
     }
 
-    private function renameTranslations(string $path, OutputInterface $output): void
+    private function renameTranslations(Logger $logger, string $path): void
     {
         $translationsPath = "$path/translations";
 
         if (! is_dir($translationsPath)) {
+            $logger->warning('No translations directory found at /translations.');
+
             return;
         }
-
-        $output->write('<fg=gray>➜</> Renaming <options=bold>translations</> to <options=bold>lang</> … ');
 
         rename($translationsPath, "$path/lang");
 
-        $output->writeln('<fg=green>done</>');
+        $logger->success('Translations directory renamed from /translations to /lang.');
     }
 
-    private function renamePublic(string $path, OutputInterface $output): void
+    private function renamePublic(Logger $logger, string $path): void
     {
         if (! $this->renamePublicPath) {
+            $logger->success('Not renaming public path.');
+
             return;
         }
 
-        $output->write("<fg=gray>➜</> Renaming <options=bold>$this->publicPath</> to <options=bold>public</> … ");
         rename("$path/$this->publicPath", "$path/public");
-        $output->writeln('<fg=green>done</>');
+
+        $logger->success("Public path renamed from /$this->publicPath to /public.");
+
         $this->publicPath = 'public';
     }
 
-    private function updateIndex(string $path, OutputInterface $output): void
+    private function updateIndex(Logger $logger, string $path): void
     {
         $contents = <<<PHP
 <?php
@@ -642,35 +636,39 @@ require __DIR__.'/../vendor/autoload.php';
 
 PHP;
 
-        $output->write("<fg=gray>➜</> Updating <options=bold>$this->publicPath/index.php</> … ");
         file_put_contents("$path/$this->publicPath/index.php", $contents);
-        $output->writeln('<fg=green>done</>');
+
+        $logger->success("/$this->publicPath/index.php updated");
     }
 
-    private function removeCraft(string $path, OutputInterface $output): void
+    private function removeCraft(Logger $logger, string $path): void
     {
         $craftPath = "$path/craft";
 
         if (! file_exists($craftPath)) {
+            $logger->success('No craft executable exists.');
+
             return;
         }
 
-        $output->write("<fg=gray>➜</> Removing the <options=bold>craft</> executable … ");
         unlink($craftPath);
-        $output->writeln('<fg=green>done</>');
-        $output->writeln('  <fg=gray>(This will be re-created the first time you publish assets with Laravel!)</>');
+
+        $logger->success('Craft executable removed.');
+        $logger->warning('The craft executable will be re-created the first time you publish assets with Laravel.');
     }
 
-    private function removeOldBootstrap(string $path, OutputInterface $output): void
+    private function removeOldBootstrap(Logger $logger, string $path): void
     {
         $bootstrapPath = "$path/bootstrap.php";
 
         if (! file_exists($bootstrapPath)) {
+            $logger->success('No bootstrap.php file exists.');
+
             return;
         }
 
-        $output->write('<fg=gray>➜</> Removing <options=bold>bootstrap.php</> … ');
         unlink($bootstrapPath);
-        $output->writeln('<fg=green>done</>');
+
+        $logger->success('bootstrap.php file removed.');
     }
 }
