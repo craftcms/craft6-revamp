@@ -69,7 +69,7 @@ class RevampCommandTest extends TestCase
         parent::tearDown();
     }
 
-    public function testItPreparesACraftProjectForCraft6(): void
+    public function test_it_prepares_a_craft_project_for_craft6(): void
     {
         $tester = new CommandTester(new RevampCommand);
 

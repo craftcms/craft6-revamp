@@ -8,22 +8,19 @@ use CraftCms\Prepper\Console\Support\Env;
 use CraftCms\Prepper\Console\Support\Json;
 use Dotenv\Dotenv;
 use Illuminate\Support\Str;
-use Laravel\Prompts\Progress;
 use Laravel\Prompts\Prompt;
 use Laravel\Prompts\Support\Logger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\outro;
-use function Laravel\Prompts\progress;
-use function Laravel\Prompts\spin;
 use function Laravel\Prompts\table;
 use function Laravel\Prompts\task;
 use function Laravel\Prompts\title;
@@ -105,6 +102,7 @@ class RevampCommand extends Command
 
         if (! confirm(label: 'Proceed?', hint: 'Any customizations will be lost.')) {
             warning('Cancelled.');
+
             return self::FAILURE;
         }
 
@@ -212,6 +210,7 @@ class RevampCommand extends Command
         foreach ($testPaths as $testPath) {
             if (file_exists("$path/$testPath/index.php")) {
                 $this->publicPath = $testPath;
+
                 return self::SUCCESS;
             }
         }
@@ -233,6 +232,7 @@ class RevampCommand extends Command
 
             if (file_exists("$dirPath/index.php")) {
                 $this->publicPath = substr($dirPath, strlen($path) + 1);
+
                 return self::SUCCESS;
             }
         }
@@ -290,6 +290,7 @@ class RevampCommand extends Command
     {
         if (! $this->isDdev($path)) {
             $logger->warning('No .ddev/config.yaml file detected.');
+
             return;
         }
 
@@ -308,17 +309,19 @@ class RevampCommand extends Command
     {
         if (! preg_match('/^type:\s+[\'"]?([\w\d]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
             $logger->warning('No project type detected in .ddev/config.yaml.');
+
             return;
         }
 
         if ($match[1][0] === 'laravel') {
             $logger->success('Project type already set to Laravel.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            'type: laravel' .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            'type: laravel'.
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
         $logger->success('Project type updated.');
     }
@@ -327,20 +330,22 @@ class RevampCommand extends Command
     {
         if (! preg_match('/^php_version:\s+[\'"]?([\d\.]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
             $logger->warning('No php_version detected in .ddev/config.yaml.');
+
             return;
         }
 
         if ($match[1][0] === self::PHP_VERSION) {
-            $logger->success('PHP version already set to ' . self::PHP_VERSION . '.');
+            $logger->success('PHP version already set to '.self::PHP_VERSION.'.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            sprintf('php_version: "%s"', self::PHP_VERSION) .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            sprintf('php_version: "%s"', self::PHP_VERSION).
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
 
-        $logger->success('PHP version updated to ' . self::PHP_VERSION . '.');
+        $logger->success('PHP version updated to '.self::PHP_VERSION.'.');
     }
 
     private function updateDdevDocroot(Logger $logger, string &$ddevConfig): void
@@ -351,12 +356,13 @@ class RevampCommand extends Command
 
         if (! preg_match('/^docroot:\s+[\'"]?([\w+\/]+)[\'"]?\s*$/m', $ddevConfig, $match, PREG_OFFSET_CAPTURE)) {
             $logger->warning('No docroot detected in .ddev/config.yaml.');
+
             return;
         }
 
         // use str_replace() instead of symfony/yaml so we don't lose the comments
-        $ddevConfig = substr($ddevConfig, 0, $match[0][1]) .
-            'docroot: public' .
+        $ddevConfig = substr($ddevConfig, 0, $match[0][1]).
+            'docroot: public'.
             substr($ddevConfig, $match[0][1] + strlen($match[0][0]));
 
         $logger->success('Docroot updated in .ddev/config.yaml.');
@@ -485,6 +491,7 @@ PHP;
 
         if (file_exists($appPath)) {
             $logger->success('bootstrap/app.php already exists.');
+
             return;
         }
 
@@ -514,7 +521,7 @@ PHP;
 PHP;
         }
 
-        $contents .= <<<PHP
+        $contents .= <<<'PHP'
     ->create();
 
 PHP;
@@ -553,7 +560,7 @@ PHP;
         $configPath = "$path/config";
 
         if (! is_dir($configPath)) {
-            $logger->warning("No config directory found at /config.");
+            $logger->warning('No config directory found at /config.');
 
             return;
         }
@@ -561,7 +568,7 @@ PHP;
         $targetPath = "$configPath/craft";
 
         if (is_dir($targetPath)) {
-            $logger->success("Config directory at /config/craft exists.");
+            $logger->success('Config directory at /config/craft exists.');
 
             return;
         }
@@ -570,7 +577,7 @@ PHP;
         mkdir($targetPath, recursive: true);
         rename("$path/craft-config", $targetPath);
 
-        $logger->success("Config created directory at /config/craft.");
+        $logger->success('Config created directory at /config/craft.');
     }
 
     private function renameTranslations(Logger $logger, string $path): void
@@ -578,20 +585,20 @@ PHP;
         $translationsPath = "$path/translations";
 
         if (! is_dir($translationsPath)) {
-            $logger->warning("No translations directory found at /translations.");
+            $logger->warning('No translations directory found at /translations.');
 
             return;
         }
 
         rename($translationsPath, "$path/lang");
 
-        $logger->success("Translations directory renamed from /translations to /lang.");
+        $logger->success('Translations directory renamed from /translations to /lang.');
     }
 
     private function renamePublic(Logger $logger, string $path): void
     {
         if (! $this->renamePublicPath) {
-            $logger->success("Not renaming public path.");
+            $logger->success('Not renaming public path.');
 
             return;
         }

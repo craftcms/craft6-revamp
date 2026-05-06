@@ -3,7 +3,6 @@
 namespace CraftCms\Prepper\Console\Support;
 
 use InvalidArgumentException;
-use Throwable;
 
 /**
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
@@ -93,7 +92,7 @@ class Json
             $json = static::reindent($json, $indent);
         }
 
-        file_put_contents($path, $json . "\n");
+        file_put_contents($path, $json."\n");
     }
 
     /**
