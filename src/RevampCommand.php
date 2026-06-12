@@ -48,7 +48,7 @@ class RevampCommand extends Command
     {
         Prompt::setOutput($output);
 
-        title('Craft 6 Prepper');
+        title('Craft 6 Revamp');
 
         $path = str_replace('\\', '/', $input->getArgument('path') ?? getcwd());
         $composerJsonPath = "$path/composer.json";
@@ -115,6 +115,7 @@ class RevampCommand extends Command
             'Creating framework storage folders' => fn (Logger $logger) => $this->addFrameworkFolders($logger, $path),
             'Moving Craft config directory' => fn (Logger $logger) => $this->moveConfigDirectory($logger, $path),
             'Renaming translations directory' => fn (Logger $logger) => $this->renameTranslations($logger, $path),
+            'Moving templates directory' => fn (Logger $logger) => $this->moveTemplates($logger, $path),
             'Renaming the public folder' => fn (Logger $logger) => $this->renamePublic($logger, $path),
             "Updating {$this->publicPath}/index.php" => fn (Logger $logger) => $this->updateIndex($logger, $path),
             'Removing the Craft executable' => fn (Logger $logger) => $this->removeCraft($logger, $path),
@@ -593,6 +594,37 @@ PHP;
         rename($translationsPath, "$path/lang");
 
         $logger->success('Translations directory renamed from /translations to /lang.');
+    }
+
+    private function moveTemplates(Logger $logger, string $path): void
+    {
+        $templatesPath = "$path/templates";
+
+        if (! is_dir($templatesPath)) {
+            $logger->warning('No templates directory found at /templates.');
+
+            return;
+        }
+
+        if (is_dir("$path/resources/views")) {
+            $overwrite = confirm("The /resources/views directory already exists. Do you want to move the templates there?");
+
+            if (! $overwrite) {
+                $logger->warning('Not renaming templates directory as /resources/views already exists.');
+
+                return;
+            }
+
+            rename("$path/resources/views", "$path/resources/views-old");
+        }
+
+        if (! is_dir("$path/resources")) {
+            mkdir("$path/resources", recursive: true);
+        }
+
+        rename($templatesPath, "$path/resources/views");
+
+        $logger->success('Templates directory moved from /templates to /resources/views.');
     }
 
     private function renamePublic(Logger $logger, string $path): void
