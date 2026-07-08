@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## 1.1.1 - 2026-07-07
 
 - Improved the Next Steps formatting.
 
