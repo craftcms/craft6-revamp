@@ -139,7 +139,7 @@ class RevampCommand extends Command
                 if (! empty($aliases)) {
                     $steps[] = sprintf(
                         'Update the %s %s in config/craft/general.php',
-                        implode(' and ', array_map(fn (string $alias) => "@$alias", $aliases)),
+                        implode(' and ', array_map(fn (string $alias) => "<options=bold>@$alias</>", $aliases)),
                         count($aliases) === 1 ? 'alias' : 'aliases',
                     );
                 }
