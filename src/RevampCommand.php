@@ -61,7 +61,7 @@ class RevampCommand extends Command
 
         $composerLockPath = "$path/composer.lock";
         if (! file_exists($composerLockPath)) {
-            error("No composer.lock file found at $path. Run `composer install` first.");
+            error("No composer.lock file found at $path. Run <options=bold>composer install</> first.");
 
             return self::FAILURE;
         }
@@ -150,14 +150,14 @@ class RevampCommand extends Command
 
             if (! empty($deprecatedSettings)) {
                 $steps[] = sprintf(
-                    'Remove `%s` from config/craft/general.php',
+                    'Remove <options=bold>%s</> from config/craft/general.php',
                     implode(' and ', array_map(fn (string $setting) => $setting, $deprecatedSettings)),
                 );
             }
         }
 
         if ($this->isDdev($path)) {
-            $steps[] = 'Run ddev restart to pick up the new project type and configuration';
+            $steps[] = 'Run <options=bold>ddev restart</> to pick up the new project type and configuration';
         }
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
