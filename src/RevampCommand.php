@@ -129,6 +129,7 @@ class RevampCommand extends Command
         $generalConfigPath = "$path/config/craft/general.php";
         if (file_exists($generalConfigPath)) {
             $generalConfig = file_get_contents($generalConfigPath);
+            $contains = fn(string $setting) => preg_match("/\b$setting\b/", $generalConfig);
 
             if ($this->renamePublicPath) {
                 $aliases = collect(['web', 'webroot'])
@@ -145,7 +146,7 @@ class RevampCommand extends Command
             }
 
             $deprecatedSettings = collect(['omitScriptNameInUrls', 'pathParam'])
-                ->filter(fn (string $setting) => preg_match("/\b$setting\b/", $generalConfig))
+                ->filter(fn (string $setting) => $contains($setting))
                 ->all();
 
             if (! empty($deprecatedSettings)) {
@@ -153,6 +154,10 @@ class RevampCommand extends Command
                     'Remove <options=bold>%s</> from config/craft/general.php',
                     implode(' and ', array_map(fn (string $setting) => $setting, $deprecatedSettings)),
                 );
+            }
+
+            if (! $contains('loginPath')) {
+                $steps[] = 'Add <options=bold>loginPath</> to config/craft/general.php if you have a front-end login form';
             }
         }
 
