@@ -522,7 +522,9 @@ return Application::configure(basePath: dirname(__DIR__))
 PHP;
         if ($this->publicPath !== 'public' && ! $this->renamePublicPath) {
             $contents .= <<<PHP
-    ->usePublicPath(base_path('$this->publicPath'))
+    ->booted(function (Application $app) {
+        $app->usePublicPath(base_path('$this->publicPath'));
+    })
 
 PHP;
         }
