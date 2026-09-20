@@ -3,10 +3,12 @@
 namespace CraftCms\Prepper\Console;
 
 use Closure;
+use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use CraftCms\Prepper\Console\Support\Env;
 use CraftCms\Prepper\Console\Support\Json;
 use Dotenv\Dotenv;
+use FilesystemIterator;
 use Illuminate\Support\Str;
 use Laravel\Prompts\Prompt;
 use Laravel\Prompts\Support\Logger;
@@ -114,6 +116,7 @@ class RevampCommand extends Command
             'Creating Laravel bootstrap files' => fn (Logger $logger) => $this->addBootstrap($logger, $path),
             'Creating framework storage folders' => fn (Logger $logger) => $this->addFrameworkFolders($logger, $path),
             'Moving Craft config directory' => fn (Logger $logger) => $this->moveConfigDirectory($logger, $path),
+            'Publishing Laravel configuration' => fn (Logger $logger) => $this->publishLaravelConfig($logger, $path),
             'Renaming translations directory' => fn (Logger $logger) => $this->renameTranslations($logger, $path),
             'Moving templates directory' => fn (Logger $logger) => $this->moveTemplates($logger, $path),
             'Renaming the public folder' => fn (Logger $logger) => $this->renamePublic($logger, $path),
@@ -586,6 +589,41 @@ PHP;
         rename("$path/craft-config", $targetPath);
 
         $logger->success('Config created directory at /config/craft.');
+    }
+
+    private function publishLaravelConfig(Logger $logger, string $path): void
+    {
+        $sourcePath = InstalledVersions::getInstallPath('laravel/framework').'/config';
+
+        if (! is_dir($sourcePath)) {
+            $logger->error('Laravel configuration files could not be found.');
+
+            return;
+        }
+
+        $targetPath = "$path/config";
+        if (! is_dir($targetPath)) {
+            mkdir($targetPath, recursive: true);
+        }
+
+        $published = 0;
+
+        foreach (new FilesystemIterator($sourcePath) as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $targetFile = "$targetPath/{$file->getFilename()}";
+
+            if (file_exists($targetFile)) {
+                continue;
+            }
+
+            copy($file->getPathname(), $targetFile);
+            $published++;
+        }
+
+        $logger->success("Published $published Laravel configuration files.");
     }
 
     private function renameTranslations(Logger $logger, string $path): void

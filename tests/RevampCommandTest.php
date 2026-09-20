@@ -85,6 +85,12 @@ class RevampCommandTest extends TestCase
         self::assertFileExists("{$this->projectPath}/bootstrap/cache/.gitignore");
         self::assertFileExists("{$this->projectPath}/storage/framework/cache/.gitignore");
         self::assertFileDoesNotExist("{$this->projectPath}/bootstrap.php");
+        self::assertFileExists("{$this->projectPath}/config/app.php");
+        self::assertFileExists("{$this->projectPath}/config/database.php");
+        self::assertSame(
+            file_get_contents(__DIR__.'/../vendor/laravel/framework/config/app.php'),
+            file_get_contents("{$this->projectPath}/config/app.php"),
+        );
 
         $composerJson = json_decode(file_get_contents("{$this->projectPath}/composer.json"), true);
 
