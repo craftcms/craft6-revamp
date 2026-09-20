@@ -1,5 +1,9 @@
 # Release Notes
 
+## 1.2.0 - 2026-09-20
+
+- The command now creates Laravel’s default configuration files, and suggests updating `config/filesystems.php` based on the previously-defined Craft filesystems. ([#5](https://github.com/craftcms/craft6-revamp/pull/5))
+
 ## 1.1.1 - 2026-07-07
 
 - Improved the Next Steps formatting.
