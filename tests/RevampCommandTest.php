@@ -104,8 +104,9 @@ YAML,
         self::assertFileExists("{$this->projectPath}/config/craft/project/project.yaml");
         self::assertFileExists("{$this->projectPath}/config/app.php");
         self::assertFileExists("{$this->projectPath}/config/database.php");
+        self::assertFileExists(__DIR__.'/../resources/config/app.php');
         self::assertSame(
-            file_get_contents(__DIR__.'/../vendor/laravel/framework/config/app.php'),
+            file_get_contents(__DIR__.'/../resources/config/app.php'),
             file_get_contents("{$this->projectPath}/config/app.php"),
         );
         self::assertStringContainsString('Craft Filesystems have been removed.', $tester->getDisplay());

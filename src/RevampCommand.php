@@ -3,7 +3,6 @@
 namespace CraftCms\Prepper\Console;
 
 use Closure;
-use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use CraftCms\Prepper\Console\Support\Env;
 use CraftCms\Prepper\Console\Support\Json;
@@ -603,7 +602,7 @@ PHP;
 
     private function publishLaravelConfig(Logger $logger, string $path): void
     {
-        $sourcePath = InstalledVersions::getInstallPath('laravel/framework').'/config';
+        $sourcePath = __DIR__.'/../resources/config';
 
         if (! is_dir($sourcePath)) {
             $logger->error('Laravel configuration files could not be found.');
