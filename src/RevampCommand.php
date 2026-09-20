@@ -107,7 +107,10 @@ class RevampCommand extends Command
             return self::FAILURE;
         }
 
-        $filesystemSuggestions = (new FilesystemMigrationSuggestions)->get("$path/config/project/project.yaml");
+        $projectConfigPath = file_exists("$path/config/project/project.yaml")
+            ? "$path/config/project/project.yaml"
+            : "$path/config/craft/project/project.yaml";
+        $filesystemSuggestions = (new FilesystemMigrationSuggestions)->get($projectConfigPath);
 
         $this->runSteps([
             'Updating composer.json' => fn (Logger $logger) => $this->updateComposer($logger, $composerJsonPath),

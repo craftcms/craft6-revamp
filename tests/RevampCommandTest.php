@@ -129,6 +129,16 @@ YAML,
         self::assertStringContainsString('DB_HOST=db', $env);
         self::assertStringContainsString('APP_DEBUG=true', $env);
         self::assertStringContainsString('APP_KEY=', $env);
+
+        $rerunTester = new CommandTester(new RevampCommand);
+        $rerunExitCode = $rerunTester->execute(
+            ['path' => $this->projectPath],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::SUCCESS, $rerunExitCode);
+        self::assertStringContainsString('Craft Filesystems have been removed.', $rerunTester->getDisplay());
+        self::assertStringContainsString("'siteAssets' => [", $rerunTester->getDisplay());
     }
 
     private function removeDirectory(string $path): void
