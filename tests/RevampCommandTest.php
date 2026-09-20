@@ -51,6 +51,21 @@ class RevampCommandTest extends TestCase
 
         file_put_contents("{$this->projectPath}/public/index.php", '<?php echo "old";'.PHP_EOL);
         file_put_contents("{$this->projectPath}/bootstrap.php", '<?php // old bootstrap'.PHP_EOL);
+        mkdir("{$this->projectPath}/config", recursive: true);
+        file_put_contents("{$this->projectPath}/config/general.php", '<?php return [];'.PHP_EOL);
+        mkdir("{$this->projectPath}/config/project", recursive: true);
+        file_put_contents(
+            "{$this->projectPath}/config/project/project.yaml",
+            <<<'YAML'
+fs:
+  siteAssets:
+    type: craft\fs\Local
+    hasUrls: true
+    url: '@assetBaseUrl/site'
+    settings:
+      path: '@assetBasePath/site'
+YAML,
+        );
         file_put_contents(
             "{$this->projectPath}/.env",
             implode(PHP_EOL, [
@@ -85,17 +100,23 @@ class RevampCommandTest extends TestCase
         self::assertFileExists("{$this->projectPath}/bootstrap/cache/.gitignore");
         self::assertFileExists("{$this->projectPath}/storage/framework/cache/.gitignore");
         self::assertFileDoesNotExist("{$this->projectPath}/bootstrap.php");
+        self::assertFileExists("{$this->projectPath}/config/craft/general.php");
+        self::assertFileExists("{$this->projectPath}/config/craft/project/project.yaml");
         self::assertFileExists("{$this->projectPath}/config/app.php");
         self::assertFileExists("{$this->projectPath}/config/database.php");
         self::assertSame(
             file_get_contents(__DIR__.'/../vendor/laravel/framework/config/app.php'),
             file_get_contents("{$this->projectPath}/config/app.php"),
         );
+        self::assertStringContainsString('Craft Filesystems have been removed.', $tester->getDisplay());
+        self::assertStringContainsString("'siteAssets' => [", $tester->getDisplay());
+        self::assertStringContainsString("'root' => '@assetBasePath/site',", $tester->getDisplay());
+        self::assertStringContainsString("'url' => '@assetBaseUrl/site',", $tester->getDisplay());
 
         $composerJson = json_decode(file_get_contents("{$this->projectPath}/composer.json"), true);
 
-        self::assertSame('6.x-dev as 5.9.0', $composerJson['require']['craftcms/cms']);
-        self::assertSame('6.x-dev as 5.9.0', $composerJson['require']['craftcms/yii2-adapter']);
+        self::assertSame('^6.0.0-alpha.1', $composerJson['require']['craftcms/cms']);
+        self::assertSame('*', $composerJson['require']['craftcms/yii2-adapter']);
         self::assertArrayNotHasKey('vlucas/phpdotenv', $composerJson['require']);
         self::assertArrayNotHasKey('config', $composerJson);
 

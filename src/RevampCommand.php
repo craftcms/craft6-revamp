@@ -108,6 +108,8 @@ class RevampCommand extends Command
             return self::FAILURE;
         }
 
+        $filesystemSuggestions = (new FilesystemMigrationSuggestions)->get("$path/config/project/project.yaml");
+
         $this->runSteps([
             'Updating composer.json' => fn (Logger $logger) => $this->updateComposer($logger, $composerJsonPath),
             'Updating DDEV configuration' => fn (Logger $logger) => $this->updateDdevConfig($logger, $path),
@@ -169,6 +171,11 @@ class RevampCommand extends Command
         }
 
         $ddevPrefix = $this->isDdev($path) ? 'ddev ' : '';
+
+        if (! empty($filesystemSuggestions)) {
+            $steps[] = "Craft Filesystems have been removed. Add the following Laravel disks to the <options=bold>disks</> array in config/filesystems.php:\n\n".implode("\n\n", $filesystemSuggestions);
+        }
+
         $steps[] = "Run <options=bold>{$ddevPrefix}composer update</>";
         $steps[] = "Run <options=bold>{$ddevPrefix}artisan craft:setup:publish</>";
         $steps[] = "Run <options=bold>{$ddevPrefix}artisan key:generate</>";
@@ -271,6 +278,9 @@ class RevampCommand extends Command
         // Otherwise it ends up as `platform: []` which is invalid.
         if (empty($config['config']['platform'])) {
             unset($config['config']['platform']);
+        }
+        if (empty($config['config'])) {
+            unset($config['config']);
         }
         $logger->success('Removed platform.php config');
 
@@ -525,8 +535,8 @@ return Application::configure(basePath: dirname(__DIR__))
 PHP;
         if ($this->publicPath !== 'public' && ! $this->renamePublicPath) {
             $contents .= <<<PHP
-    ->booted(function (Application $app) {
-        $app->usePublicPath(base_path('$this->publicPath'));
+    ->booted(function (Application \$app) {
+        \$app->usePublicPath(base_path('$this->publicPath'));
     })
 
 PHP;
