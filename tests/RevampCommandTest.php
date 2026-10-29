@@ -129,6 +129,8 @@ YAML,
         self::assertStringContainsString('DB_HOST=db', $env);
         self::assertStringContainsString('APP_DEBUG=true', $env);
         self::assertStringContainsString('APP_KEY=', $env);
+        self::assertStringNotContainsString('oauth-private.key', $tester->getDisplay());
+        self::assertStringNotContainsString('PASSPORT_PRIVATE_KEY', $tester->getDisplay());
 
         $rerunTester = new CommandTester(new RevampCommand);
         $rerunExitCode = $rerunTester->execute(
@@ -139,6 +141,27 @@ YAML,
         self::assertSame(Command::SUCCESS, $rerunExitCode);
         self::assertStringContainsString('Craft Filesystems have been removed.', $rerunTester->getDisplay());
         self::assertStringContainsString("'siteAssets' => [", $rerunTester->getDisplay());
+    }
+
+    public function test_it_moves_oauth_keys_into_laravel_storage(): void
+    {
+        mkdir("{$this->projectPath}/craft-storage");
+        file_put_contents("{$this->projectPath}/craft-storage/oauth-private.key", 'private');
+        file_put_contents("{$this->projectPath}/craft-storage/oauth-public.key", 'public');
+        file_put_contents("{$this->projectPath}/.env", "CRAFT_STORAGE_PATH=craft-storage\nCRAFT_OAUTH_PUBLIC_KEY=@root/keys/public.key\n", FILE_APPEND);
+
+        $tester = new CommandTester(new RevampCommand);
+        $exitCode = $tester->execute(['path' => $this->projectPath], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame('private', file_get_contents("{$this->projectPath}/storage/oauth-private.key"));
+        self::assertSame('public', file_get_contents("{$this->projectPath}/storage/oauth-public.key"));
+        self::assertSame(0600, fileperms("{$this->projectPath}/storage/oauth-private.key") & 0777);
+        self::assertFileDoesNotExist("{$this->projectPath}/craft-storage/oauth-private.key");
+
+        $display = preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Move oauth-private.key and oauth-public.key from CRAFT_STORAGE_PATH into storage/', $display);
+        self::assertStringContainsString('with PASSPORT_PRIVATE_KEY and PASSPORT_PUBLIC_KEY in each environment', $display);
     }
 
     private function removeDirectory(string $path): void
