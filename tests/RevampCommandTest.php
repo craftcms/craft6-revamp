@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Tests;
+namespace CraftCms\Revamp\Tests;
 
-use CraftCms\Prepper\Console\RevampCommand;
+use CraftCms\Revamp\RevampCommand;
 use FilesystemIterator;
 use Laravel\Prompts\ConfirmPrompt;
 use Laravel\Prompts\Prompt;

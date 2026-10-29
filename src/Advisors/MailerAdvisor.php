@@ -1,9 +1,9 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Advisors;
+namespace CraftCms\Revamp\Advisors;
 
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
 
 /**
  * Suggests the Laravel mailer that replaces the email transport from project config.

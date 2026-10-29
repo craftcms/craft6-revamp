@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Tests;
+namespace CraftCms\Revamp\Tests;
 
-use CraftCms\Prepper\Console\CraftConfigUpdater;
+use CraftCms\Revamp\CraftConfigUpdater;
 use PHPUnit\Framework\TestCase;
 
 class CraftConfigUpdaterTest extends TestCase

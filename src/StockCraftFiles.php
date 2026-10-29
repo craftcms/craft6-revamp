@@ -1,6 +1,6 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
 /**
  * Finds customizations in a project’s Craft 5 `index.php` and `bootstrap.php` files.

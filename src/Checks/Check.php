@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\Project;
 
 /**
  * Runs before anything changes. A check may report on the project, prompt, or cancel the upgrade.

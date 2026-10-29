@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Tests;
+namespace CraftCms\Revamp\Tests;
 
-use CraftCms\Prepper\Console\FilesystemMigrationSuggestions;
+use CraftCms\Revamp\FilesystemMigrationSuggestions;
 use PHPUnit\Framework\TestCase;
 
 class FilesystemMigrationSuggestionsTest extends TestCase

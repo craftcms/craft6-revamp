@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
-use CraftCms\Prepper\Console\Support\Yaml;
+use CraftCms\Revamp\Support\Yaml;
 use Dotenv\Dotenv;
 
 /**

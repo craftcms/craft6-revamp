@@ -1,10 +1,10 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
 use Composer\Semver\Semver;
-use CraftCms\Prepper\Console\Project;
-use CraftCms\Prepper\Console\Support\Json;
+use CraftCms\Revamp\Project;
+use CraftCms\Revamp\Support\Json;
 
 use function Laravel\Prompts\error;
 

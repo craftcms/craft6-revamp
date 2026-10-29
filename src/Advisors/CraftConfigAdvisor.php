@@ -1,10 +1,10 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Advisors;
+namespace CraftCms\Revamp\Advisors;
 
-use CraftCms\Prepper\Console\CraftConfigUpdater;
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\CraftConfigUpdater;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
 
 /**
  * Suggests changes to Craft config files that Craft 6 no longer reads, or only reads through the Yii2 adapter.

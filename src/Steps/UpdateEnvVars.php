@@ -1,9 +1,9 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Steps;
+namespace CraftCms\Revamp\Steps;
 
-use CraftCms\Prepper\Console\Project;
-use CraftCms\Prepper\Console\Support\Env;
+use CraftCms\Revamp\Project;
+use CraftCms\Revamp\Support\Env;
 use Dotenv\Dotenv;
 use Laravel\Prompts\Support\Logger;
 

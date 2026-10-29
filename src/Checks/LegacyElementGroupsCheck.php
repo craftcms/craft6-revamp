@@ -1,10 +1,10 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
-use CraftCms\Prepper\Console\Support\Yaml;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
+use CraftCms\Revamp\Support\Yaml;
 
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\warning;

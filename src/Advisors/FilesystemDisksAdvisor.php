@@ -1,10 +1,10 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Advisors;
+namespace CraftCms\Revamp\Advisors;
 
-use CraftCms\Prepper\Console\FilesystemMigrationSuggestions;
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\FilesystemMigrationSuggestions;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
 
 /**
  * Suggests Laravel disks to replace the Craft filesystems in project config.

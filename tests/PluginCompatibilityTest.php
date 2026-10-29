@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Tests;
+namespace CraftCms\Revamp\Tests;
 
-use CraftCms\Prepper\Console\PluginCompatibility;
+use CraftCms\Revamp\PluginCompatibility;
 use PHPUnit\Framework\TestCase;
 
 class PluginCompatibilityTest extends TestCase

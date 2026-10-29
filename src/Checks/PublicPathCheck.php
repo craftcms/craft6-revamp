@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\Project;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 

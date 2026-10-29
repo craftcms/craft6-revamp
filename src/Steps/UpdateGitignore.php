@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Steps;
+namespace CraftCms\Revamp\Steps;
 
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\Project;
 use Laravel\Prompts\Support\Logger;
 
 class UpdateGitignore implements Step

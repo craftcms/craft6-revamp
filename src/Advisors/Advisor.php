@@ -1,8 +1,8 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Advisors;
+namespace CraftCms\Revamp\Advisors;
 
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\Project;
 
 /**
  * Runs after all steps, and suggests Next steps that can’t be automated.

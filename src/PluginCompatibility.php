@@ -1,11 +1,11 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
 use Closure;
 use Composer\Semver\Intervals;
 use Composer\Semver\VersionParser;
-use CraftCms\Prepper\Console\Support\Json;
+use CraftCms\Revamp\Support\Json;
 use UnexpectedValueException;
 
 /**

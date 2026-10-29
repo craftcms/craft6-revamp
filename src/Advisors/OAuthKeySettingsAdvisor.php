@@ -1,9 +1,9 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Advisors;
+namespace CraftCms\Revamp\Advisors;
 
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
 
 /**
  * Suggests replacing Craft’s OAuth key settings with Laravel Passport’s.

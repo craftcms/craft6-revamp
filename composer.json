@@ -1,6 +1,6 @@
 {
     "name": "craftcms/craft6-revamp",
-    "description": "Craft 6 project prepper",
+    "description": "Craft 6 upgrade tool",
     "keywords": [
         "craftcms"
     ],
@@ -31,12 +31,12 @@
     ],
     "autoload": {
         "psr-4": {
-            "CraftCms\\Prepper\\Console\\": "src/"
+            "CraftCms\\Revamp\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "CraftCms\\Prepper\\Console\\Tests\\": "tests/"
+            "CraftCms\\Revamp\\Tests\\": "tests/"
         }
     },
     "config": {

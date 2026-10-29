@@ -1,6 +1,6 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
 /**
  * Updates Craft config files after they move into config/craft/.

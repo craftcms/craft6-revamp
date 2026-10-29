@@ -1,9 +1,9 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
-use CraftCms\Prepper\Console\Project;
-use CraftCms\Prepper\Console\StockCraftFiles;
+use CraftCms\Revamp\Project;
+use CraftCms\Revamp\StockCraftFiles;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\note;

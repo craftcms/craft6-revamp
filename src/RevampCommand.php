@@ -1,24 +1,24 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
-use CraftCms\Prepper\Console\Advisors\Advisor;
-use CraftCms\Prepper\Console\Advisors\CraftConfigAdvisor;
-use CraftCms\Prepper\Console\Advisors\FilesystemDisksAdvisor;
-use CraftCms\Prepper\Console\Advisors\FinalCommandsAdvisor;
-use CraftCms\Prepper\Console\Advisors\MailerAdvisor;
-use CraftCms\Prepper\Console\Advisors\OAuthKeySettingsAdvisor;
-use CraftCms\Prepper\Console\Checks\Check;
-use CraftCms\Prepper\Console\Checks\CraftVersionCheck;
-use CraftCms\Prepper\Console\Checks\EntrypointsCheck;
-use CraftCms\Prepper\Console\Checks\GitStatusCheck;
-use CraftCms\Prepper\Console\Checks\LegacyElementGroupsCheck;
-use CraftCms\Prepper\Console\Checks\PartialRunCheck;
-use CraftCms\Prepper\Console\Checks\PluginCompatibilityCheck;
-use CraftCms\Prepper\Console\Checks\PublicPathCheck;
-use CraftCms\Prepper\Console\Steps;
-use CraftCms\Prepper\Console\Steps\Step;
-use CraftCms\Prepper\Console\Support\Text;
+use CraftCms\Revamp\Advisors\Advisor;
+use CraftCms\Revamp\Advisors\CraftConfigAdvisor;
+use CraftCms\Revamp\Advisors\FilesystemDisksAdvisor;
+use CraftCms\Revamp\Advisors\FinalCommandsAdvisor;
+use CraftCms\Revamp\Advisors\MailerAdvisor;
+use CraftCms\Revamp\Advisors\OAuthKeySettingsAdvisor;
+use CraftCms\Revamp\Checks\Check;
+use CraftCms\Revamp\Checks\CraftVersionCheck;
+use CraftCms\Revamp\Checks\EntrypointsCheck;
+use CraftCms\Revamp\Checks\GitStatusCheck;
+use CraftCms\Revamp\Checks\LegacyElementGroupsCheck;
+use CraftCms\Revamp\Checks\PartialRunCheck;
+use CraftCms\Revamp\Checks\PluginCompatibilityCheck;
+use CraftCms\Revamp\Checks\PublicPathCheck;
+use CraftCms\Revamp\Steps;
+use CraftCms\Revamp\Steps\Step;
+use CraftCms\Revamp\Support\Text;
 use Laravel\Prompts\Prompt;
 use Laravel\Prompts\Support\Logger;
 use Symfony\Component\Console\Command\Command;

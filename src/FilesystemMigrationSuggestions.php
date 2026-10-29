@@ -1,6 +1,6 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
 use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Exception\ParseException;

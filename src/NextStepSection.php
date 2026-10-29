@@ -1,6 +1,6 @@
 <?php
 
-namespace CraftCms\Prepper\Console;
+namespace CraftCms\Revamp;
 
 /**
  * Groups Next steps, so they’re listed in the same order no matter which check, step, or advisor adds them.

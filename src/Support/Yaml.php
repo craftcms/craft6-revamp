@@ -1,6 +1,6 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Support;
+namespace CraftCms\Revamp\Support;
 
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml as SymfonyYaml;

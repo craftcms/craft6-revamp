@@ -1,10 +1,10 @@
 <?php
 
-namespace CraftCms\Prepper\Console\Checks;
+namespace CraftCms\Revamp\Checks;
 
-use CraftCms\Prepper\Console\PluginCompatibility;
-use CraftCms\Prepper\Console\NextStepSection;
-use CraftCms\Prepper\Console\Project;
+use CraftCms\Revamp\PluginCompatibility;
+use CraftCms\Revamp\NextStepSection;
+use CraftCms\Revamp\Project;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\table;
