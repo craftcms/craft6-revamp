@@ -67,8 +67,8 @@ If the command doesn’t resolve (say, because your user’s Composer `bin` dire
 ~/.composer/vendor/bin/craft6-revamp
 ```
 
-You may also pass a `--path`, if you have many projects to update:
+You may also pass a project path, if you have many projects to update:
 
 ```sh
-craft6-revamp --path /path/to/project
+craft6-revamp /path/to/project
 ```
