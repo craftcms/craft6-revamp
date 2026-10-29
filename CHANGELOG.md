@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## 1.3.0 - 2026-10-29
 
 - The command now rewrites `dirname(__DIR__)`-based paths in `config/craft/general.php` to `base_path()` or `public_path()`, and removes the `omitScriptNameInUrls`, `pathParam`, and `enableTwigSandbox` settings.
 - The command now sets `APP_ENV` and `APP_URL` in `.env`, maps `CRAFT_DB_TABLE` to `DB_TABLE_PREFIX`, and renames the variables in `.env.example*` files too.
