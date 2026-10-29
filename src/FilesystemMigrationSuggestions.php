@@ -8,11 +8,19 @@ use Symfony\Component\Yaml\Yaml;
 
 class FilesystemMigrationSuggestions
 {
+    private string $publicPath = 'public';
+
+    /** @var string[] Craft aliases found in the current filesystem’s settings that have no Laravel equivalent */
+    private array $unresolvedAliases = [];
+
     /**
+     * @param  string  $publicPath  The web root folder name, relative to the project root, once the upgrade is done
      * @return string[]
      */
-    public function get(string $projectConfigPath): array
+    public function get(string $projectConfigPath, string $publicPath = 'public'): array
     {
+        $this->publicPath = $publicPath;
+
         if (! file_exists($projectConfigPath)) {
             return [];
         }
@@ -37,6 +45,7 @@ class FilesystemMigrationSuggestions
             $type = $filesystem['type'] ?? null;
             $settings = is_array($filesystem['settings'] ?? null) ? $filesystem['settings'] : [];
             $credentials = [];
+            $this->unresolvedAliases = [];
             $config = match ($type) {
                 'craft\\fs\\Local' => $this->localDiskConfig($filesystem, $settings),
                 'craft\\awss3\\Fs' => $this->s3DiskConfig($handle, $filesystem, $settings, $credentials),
@@ -64,6 +73,15 @@ class FilesystemMigrationSuggestions
                     "\nSet %s in .env using the previous credential %s.",
                     implode(' and ', array_map(fn (string $name) => "<options=bold>$name</>", $credentials)),
                     count($credentials) === 1 ? 'value' : 'values',
+                );
+            }
+
+            if ($this->unresolvedAliases !== []) {
+                $aliases = array_values(array_unique($this->unresolvedAliases));
+                $suggestion .= sprintf(
+                    "\nReplace %s with a real %s, because Laravel config doesn’t resolve Craft aliases.",
+                    implode(' and ', array_map(fn (string $alias) => "<options=bold>$alias</>", $aliases)),
+                    count($aliases) === 1 ? 'path or URL' : 'paths or URLs',
                 );
             }
 
@@ -212,17 +230,64 @@ class FilesystemMigrationSuggestions
         return implode(PHP_EOL, $lines);
     }
 
+    /**
+     * Turns a Craft setting value into a PHP expression for Laravel config, resolving `$ENV_VAR`
+     * references and the Craft aliases that have Laravel equivalents.
+     */
     private function configExpression(mixed $value): ?string
     {
         if (! is_string($value) || $value === '') {
             return null;
         }
 
-        if (preg_match('/^\$([A-Za-z_][A-Za-z0-9_]*)$/', $value, $matches)) {
-            return sprintf("env(%s)", var_export($matches[1], true));
+        // Craft resolves `${VAR}` anywhere, and `$VAR` as a whole path segment
+        $parts = preg_split('/(\$\{\w+\}|(?<=^|\/)\$\w+(?=$|\/))/', $value, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $expressions = [];
+
+        foreach ($parts as $i => $part) {
+            if (preg_match('/^\$\{?(\w+)\}?$/', $part, $match)) {
+                $expressions[] = sprintf('env(%s)', var_export($match[1], true));
+
+                continue;
+            }
+
+            if ($i === 0 && preg_match('/^(@\w+)(\/.*)?$/s', $part, $match)) {
+                $expression = $this->aliasExpression($match[1], $match[2] ?? '');
+
+                if ($expression !== null) {
+                    $expressions[] = $expression;
+
+                    continue;
+                }
+
+                $this->unresolvedAliases[] = $match[1];
+            }
+
+            $expressions[] = var_export($part, true);
         }
 
-        return var_export($value, true);
+        return implode(' . ', $expressions);
+    }
+
+    private function aliasExpression(string $alias, string $suffix): ?string
+    {
+        $path = ltrim($suffix, '/');
+
+        return match ($alias) {
+            '@webroot' => $this->publicPath === 'public'
+                ? $this->call('public_path', $path)
+                // public_path() only reflects a custom web root once the app has booted, after config is loaded
+                : $this->call('base_path', $this->publicPath.($path === '' ? '' : "/$path")),
+            '@root' => $this->call('base_path', $path),
+            '@storage' => $this->call('storage_path', $path),
+            '@web' => "env('APP_URL')".($path === '' ? '' : ' . '.var_export("/$path", true)),
+            default => null,
+        };
+    }
+
+    private function call(string $function, string $path): string
+    {
+        return sprintf('%s(%s)', $function, $path === '' ? '' : var_export($path, true));
     }
 
     /** @param string[] $credentials */

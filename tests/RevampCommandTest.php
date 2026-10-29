@@ -4,6 +4,8 @@ namespace CraftCms\Prepper\Console\Tests;
 
 use CraftCms\Prepper\Console\RevampCommand;
 use FilesystemIterator;
+use Laravel\Prompts\ConfirmPrompt;
+use Laravel\Prompts\Prompt;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -29,6 +31,9 @@ class RevampCommandTest extends TestCase
                     'craftcms/cms' => '^5.9',
                     'vlucas/phpdotenv' => '^5.0',
                 ],
+                'require-dev' => [
+                    'yiisoft/yii2-shell' => '^2.0.3',
+                ],
                 'config' => [
                     'platform' => [
                         'php' => '8.2',
@@ -52,7 +57,20 @@ class RevampCommandTest extends TestCase
         file_put_contents("{$this->projectPath}/public/index.php", '<?php echo "old";'.PHP_EOL);
         file_put_contents("{$this->projectPath}/bootstrap.php", '<?php // old bootstrap'.PHP_EOL);
         mkdir("{$this->projectPath}/config", recursive: true);
-        file_put_contents("{$this->projectPath}/config/general.php", '<?php return [];'.PHP_EOL);
+        file_put_contents("{$this->projectPath}/config/general.php", <<<'PHP'
+<?php
+
+return GeneralConfig::create()
+    // PHP 8.4 syntax, which Craft 6 projects can use even when this tool runs on PHP 8.2
+    ->maxUploadFileSize(new ArrayObject([1])->count())
+    ->omitScriptNameInUrls()
+    ->enableTwigSandbox()
+    ->aliases([
+        '@webroot' => dirname(__DIR__) . '/public',
+    ])
+;
+
+PHP);
         mkdir("{$this->projectPath}/config/project", recursive: true);
         file_put_contents(
             "{$this->projectPath}/config/project/project.yaml",
@@ -72,13 +90,22 @@ YAML,
                 'CRAFT_DB_DRIVER=mysql',
                 'CRAFT_DB_SERVER=db',
                 'CRAFT_DEV_MODE=true',
+                'CRAFT_ENVIRONMENT=dev',
+                'CRAFT_DB_TABLE=craft_',
+                'PRIMARY_SITE_URL=https://example.test',
                 '',
             ]),
         );
+        file_put_contents(
+            "{$this->projectPath}/.env.example.production",
+            "CRAFT_ENVIRONMENT=production\nCRAFT_DB_SERVER=127.0.0.1\nCRAFT_SECURITY_KEY=\n",
+        );
+        file_put_contents("{$this->projectPath}/.gitignore", "/vendor\n/public/storage\n");
     }
 
     protected function tearDown(): void
     {
+        Prompt::flushState();
         $this->removeDirectory($this->projectPath);
 
         parent::tearDown();
@@ -112,6 +139,26 @@ YAML,
         self::assertStringContainsString('Craft Filesystems have been removed.', $tester->getDisplay());
         self::assertStringContainsString("'siteAssets' => [", $tester->getDisplay());
         self::assertStringContainsString("'root' => '@assetBasePath/site',", $tester->getDisplay());
+        self::assertStringContainsString('public/index.php has customizations that will be lost', $tester->getDisplay());
+        self::assertStringContainsString('<?php echo "old";', $tester->getDisplay());
+        self::assertStringContainsString('<?php // old bootstrap', $tester->getDisplay());
+        self::assertStringNotContainsString('omitScriptNameInUrls', $tester->getDisplay());
+        self::assertSame(<<<'PHP'
+<?php
+
+return GeneralConfig::create()
+    // PHP 8.4 syntax, which Craft 6 projects can use even when this tool runs on PHP 8.2
+    ->maxUploadFileSize(new ArrayObject([1])->count())
+    ->aliases([
+        '@webroot' => public_path(),
+    ])
+;
+
+PHP, file_get_contents("{$this->projectPath}/config/craft/general.php"));
+        self::assertSame(
+            "/vendor\n/public/storage\n/public/vendor/craft\n/storage/*.key\n",
+            file_get_contents("{$this->projectPath}/.gitignore"),
+        );
         self::assertStringContainsString("'url' => '@assetBaseUrl/site',", $tester->getDisplay());
 
         $composerJson = json_decode(file_get_contents("{$this->projectPath}/composer.json"), true);
@@ -120,6 +167,7 @@ YAML,
         self::assertSame('*', $composerJson['require']['craftcms/yii2-adapter']);
         self::assertArrayNotHasKey('vlucas/phpdotenv', $composerJson['require']);
         self::assertArrayNotHasKey('config', $composerJson);
+        self::assertArrayNotHasKey('require-dev', $composerJson);
 
         $env = file_get_contents("{$this->projectPath}/.env");
 
@@ -129,18 +177,127 @@ YAML,
         self::assertStringContainsString('DB_HOST=db', $env);
         self::assertStringContainsString('APP_DEBUG=true', $env);
         self::assertStringContainsString('APP_KEY=', $env);
+        self::assertStringContainsString('APP_ENV=local', $env);
+        self::assertStringContainsString('APP_URL="https://example.test"', $env);
+        self::assertStringContainsString('DB_TABLE_PREFIX="craft_"', $env);
+        self::assertStringNotContainsString('CRAFT_DB_TABLE=', $env);
+
+        $exampleEnv = file_get_contents("{$this->projectPath}/.env.example.production");
+        self::assertStringContainsString('APP_ENV=production', $exampleEnv);
+        self::assertStringContainsString('DB_HOST="127.0.0.1"', $exampleEnv);
+        self::assertStringNotContainsString('CRAFT_DB_SERVER', $exampleEnv);
+        self::assertStringNotContainsString('CRAFT_SECURITY_KEY', $exampleEnv);
         self::assertStringNotContainsString('oauth-private.key', $tester->getDisplay());
         self::assertStringNotContainsString('PASSPORT_PRIVATE_KEY', $tester->getDisplay());
 
+        // A second run stops unless the user confirms, since steps that already happened are skipped
         $rerunTester = new CommandTester(new RevampCommand);
         $rerunExitCode = $rerunTester->execute(
             ['path' => $this->projectPath],
             ['interactive' => false],
         );
 
+        self::assertSame(Command::FAILURE, $rerunExitCode);
+        self::assertStringContainsString('bootstrap/ and config/craft/ already exist', preg_replace('/\s+/', ' ', $rerunTester->getDisplay()));
+
+        Prompt::fallbackWhen(true);
+        ConfirmPrompt::fallbackUsing(fn () => true);
+
+        $rerunTester = new CommandTester(new RevampCommand);
+        $rerunExitCode = $rerunTester->execute(['path' => $this->projectPath]);
+
         self::assertSame(Command::SUCCESS, $rerunExitCode);
         self::assertStringContainsString('Craft Filesystems have been removed.', $rerunTester->getDisplay());
         self::assertStringContainsString("'siteAssets' => [", $rerunTester->getDisplay());
+    }
+
+    public function test_it_suggests_next_steps_for_project_specific_config(): void
+    {
+        file_put_contents("{$this->projectPath}/public/index.php", <<<'PHP'
+<?php
+/**
+ * Craft web bootstrap file
+ */
+
+// Load shared bootstrap
+require dirname(__DIR__) . '/bootstrap.php';
+
+// Load and run Craft
+/** @var craft\web\Application $app */
+$app = require CRAFT_VENDOR_PATH . '/craftcms/cms/bootstrap/web.php';
+$app->run();
+
+PHP);
+        unlink("{$this->projectPath}/bootstrap.php");
+        file_put_contents("{$this->projectPath}/config/general.php", <<<'PHP'
+<?php
+
+return [
+    '*' => [
+        'enableTwigSandbox' => true,
+        'aliases' => ['@libs' => CRAFT_VENDOR_PATH . '/libs'],
+    ],
+];
+
+PHP);
+        file_put_contents("{$this->projectPath}/config/general.web.php", "<?php return GeneralConfig::create()->pathParam(App::env(strtoupper('p')) ?: 'p');\n");
+        file_put_contents("{$this->projectPath}/config/db.php", "<?php return ['tablePrefix' => 'craft_'];\n");
+        file_put_contents("{$this->projectPath}/config/app.php", "<?php return ['id' => 'CraftCMS', 'modules' => ['site' => \\modules\\Module::class]];\n");
+        file_put_contents("{$this->projectPath}/config/routes.php", "<?php\n// Site URL rules\nreturn ['blog/<slug>' => ['template' => 'blog/_entry']];\n");
+        mkdir("{$this->projectPath}/config/htmlpurifier");
+        file_put_contents("{$this->projectPath}/config/htmlpurifier/Default.json", '{}');
+        file_put_contents("{$this->projectPath}/config/htmlpurifier/Simple.json", '{}');
+        mkdir("{$this->projectPath}/config/project/categoryGroups");
+        file_put_contents("{$this->projectPath}/config/project/categoryGroups/topics--1234.yaml", "handle: topics\nname: Topics\n");
+        file_put_contents("{$this->projectPath}/config/project/project.yaml", <<<'YAML'
+email:
+  transportType: craft\mail\transportadapters\Smtp
+  transportSettings:
+    host: smtp.example.com
+    port: '587'
+globalSets:
+  abcd:
+    handle: siteSettings
+YAML);
+
+        $tester = new CommandTester(new RevampCommand);
+        $exitCode = $tester->execute(['path' => $this->projectPath], ['interactive' => false]);
+        $display = preg_replace('/\s+/', ' ', $tester->getDisplay());
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringNotContainsString('has customizations', $display);
+        self::assertStringContainsString('php craft entrify/categories topics', $display);
+        self::assertStringContainsString('php craft entrify/global-set siteSettings', $display);
+        self::assertStringContainsString("Replace the multi-environment config arrays (the '*' key) in config/craft/general.php", $display);
+        self::assertStringContainsString('Update the paths in config/craft/general.php that were relative to the project root', $display);
+        self::assertStringContainsString('Remove pathParam from config/craft/general.web.php', $display);
+        self::assertStringContainsString('Merge config/craft/general.web.php into the main config file', $display);
+        self::assertStringContainsString('config/craft/db.php', $display);
+        self::assertStringContainsString('config/craft/app.php defines Yii modules', $display);
+        self::assertStringContainsString('Translate the URL rules in config/craft/routes.php into routes/web.php', $display);
+        self::assertStringContainsString('Register sanitizers for config/craft/htmlpurifier/Simple.json', $display);
+        self::assertStringNotContainsString('htmlpurifier/Default.json', $display);
+        self::assertStringContainsString('Set MAIL_MAILER=smtp in .env and configure the smtp mailer in config/mail.php', $display);
+        self::assertStringContainsString('host: smtp.example.com, port: 587', $display);
+        self::assertStringNotContainsString('enableTwigSandbox', file_get_contents("{$this->projectPath}/config/craft/general.php"));
+    }
+
+    public function test_it_stops_when_the_project_has_uncommitted_changes(): void
+    {
+        exec('git --version 2>&1', $output, $exitCode);
+        if ($exitCode !== 0) {
+            self::markTestSkipped('Git isn’t available.');
+        }
+
+        exec(sprintf('git -C %s init -q 2>&1', escapeshellarg($this->projectPath)));
+
+        $tester = new CommandTester(new RevampCommand);
+        $exitCode = $tester->execute(['path' => $this->projectPath], ['interactive' => false]);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertStringContainsString('uncommitted changes', $tester->getDisplay());
+        self::assertFileExists("{$this->projectPath}/config/general.php");
+        self::assertFileDoesNotExist("{$this->projectPath}/artisan");
     }
 
     public function test_it_moves_oauth_keys_into_laravel_storage(): void

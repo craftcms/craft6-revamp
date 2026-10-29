@@ -14,19 +14,25 @@ A description of each action is output to the console, followed by a confirmatio
 You will be prompted before the tool takes potentially destructive actions.
 
 - Verifies you’re running a supported version of Craft 5;
-- Updates Composer dependencies for Craft and the Generator, adds [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), and removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv);
+- Asks before continuing if the project has uncommitted Git changes, or if `bootstrap/` or `config/craft/` already exist from an earlier run;
+- Lists the packages in `composer.lock` that require `craftcms/cms`, and whether Packagist has a version of each that supports Craft 6 (this is only a report, and is skipped when Packagist can’t be reached);
+- Warns about category groups, tag groups, and global sets, which should be converted with `php craft entrify/*` on Craft 5 first;
+- Shows the lines of a customized `index.php` or `bootstrap.php` that will be lost;
+- Updates Composer dependencies for Craft and the Generator, adds [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), and removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) and `yiisoft/yii2-shell` (use `artisan tinker` instead);
 - Switches the DDEV project type to `laravel`, and updates the project’s PHP version;
-- Renames a handful of environment variables to match Laravel conventions;
+- Renames a handful of environment variables to match Laravel conventions in `.env` and the `.env.example*` files, and sets `APP_ENV` (from `CRAFT_ENVIRONMENT`, with `dev` becoming `local`) and `APP_URL` (from `PRIMARY_SITE_URL`);
 - Moves the OAuth signing keys (`oauth-private.key` and `oauth-public.key`) into `storage/` if `CRAFT_STORAGE_PATH` pointed somewhere else, so Laravel Passport keeps accepting tokens issued by Craft 5;
 - Creates the `artisan` CLI entrypoint, Laravel’s `bootstrap/` files, and replaces `index.php`;
 - Scaffolds Laravel’s `framework/` directory;
 - Moves existing Craft-specific configuration files into `config/craft/`;
+- Rewrites paths in `config/craft/general.php` (and `general.web.php`/`general.console.php`) that were based on `dirname(__DIR__)` or `CRAFT_BASE_PATH` to `base_path()` or `public_path()`, and removes the `omitScriptNameInUrls`, `pathParam`, and `enableTwigSandbox` settings;
 - Renames the web root to `public/`;
 - Removes the legacy `craft` CLI entrypoint (this will get re-created the first time you publish vendor assets from Laravel);
 - Renames the `translations/` directory to [`lang/`](https://laravel.com/docs/13.x/localization);
 - Removes the legacy `boostrap.php` file;
+- Adds `/public/vendor/craft`, `/public/storage`, and `/storage/*.key` to `.gitignore`;
 
-A few manual follow-up actions are then suggested, when relevant to your project.
+A few manual follow-up actions are then suggested, when relevant to your project: Laravel disks for your Craft filesystems, settings the tool couldn’t update safely, multi-environment and app-type config files, `db.php`, Yii components and modules in `app.php`, URL rules in `routes.php`, custom HTMLPurifier configs, the email transport, and packages without a Craft 6 version.
 
 </details>
 

@@ -105,4 +105,52 @@ YAML,
         self::assertStringContainsString("'linodeAssets' => [", $suggestions);
         self::assertStringContainsString("'endpoint' => 'https://eu-central-1.linodeobjects.com',", $suggestions);
     }
+
+    public function test_it_resolves_craft_aliases_and_environment_variables(): void
+    {
+        file_put_contents($this->projectConfigPath, <<<'YAML'
+fs:
+  uploads:
+    type: craft\fs\Local
+    hasUrls: true
+    url: '@web/uploads/'
+    settings:
+      path: '@webroot/uploads'
+  private:
+    type: craft\fs\Local
+    settings:
+      path: '$STORAGE_ROOT/private'
+  custom:
+    type: craft\fs\Local
+    hasUrls: true
+    url: '${ASSETS_HOST}/custom'
+    settings:
+      path: '@assetBasePath/custom'
+  s3:
+    type: craft\awss3\Fs
+    settings:
+      bucket: $S3_BUCKET
+      subfolder: '${S3_PREFIX}/assets'
+YAML);
+
+        $suggestions = (new FilesystemMigrationSuggestions)->get($this->projectConfigPath);
+
+        self::assertSame(<<<'PHP'
+'uploads' => [
+    'driver' => 'local',
+    'root' => public_path('uploads'),
+    'url' => env('APP_URL') . '/uploads/',
+],
+PHP, $suggestions[0]);
+        self::assertStringContainsString("'root' => env('STORAGE_ROOT') . '/private',", $suggestions[1]);
+        self::assertStringContainsString("'root' => '@assetBasePath/custom',", $suggestions[2]);
+        self::assertStringContainsString("'url' => env('ASSETS_HOST') . '/custom',", $suggestions[2]);
+        self::assertStringContainsString('Replace <options=bold>@assetBasePath</> with a real path or URL', $suggestions[2]);
+        self::assertStringContainsString("'bucket' => env('S3_BUCKET'),", $suggestions[3]);
+        self::assertStringContainsString("'root' => env('S3_PREFIX') . '/assets',", $suggestions[3]);
+
+        // A web root that isn't renamed to public/ needs base_path(), since public_path() isn't updated until the app boots
+        $suggestions = (new FilesystemMigrationSuggestions)->get($this->projectConfigPath, 'web');
+        self::assertStringContainsString("'root' => base_path('web/uploads'),", $suggestions[0]);
+    }
 }

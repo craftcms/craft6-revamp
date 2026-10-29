@@ -17,10 +17,13 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Yaml\Exception\ParseException;
+use Symfony\Component\Yaml\Yaml;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\note;
 use function Laravel\Prompts\outro;
 use function Laravel\Prompts\table;
 use function Laravel\Prompts\task;
@@ -38,6 +41,20 @@ class RevampCommand extends Command
     private bool $renamePublicPath = false;
 
     private bool $movedOAuthKeys = false;
+
+    private string $originalPublicPath;
+
+    /** @var string[] Config files with paths that couldn’t be rewritten */
+    private array $unresolvedPathFiles = [];
+
+    /** @var array<string, string[]> Removed settings that couldn’t be removed safely, indexed by config file */
+    private array $remainingRemovedSettings = [];
+
+    /** @var string[] */
+    private array $incompatiblePackages = [];
+
+    /** @var array<string, string[]> Legacy element group handles, indexed by their label */
+    private array $legacyElementGroups = [];
 
     protected function configure(): void
     {
@@ -86,9 +103,25 @@ class RevampCommand extends Command
             return self::FAILURE;
         }
 
+        if (! $this->confirmGitStatus($path) || ! $this->confirmPartialRun($path)) {
+            warning('Cancelled.');
+
+            return self::FAILURE;
+        }
+
+        $projectConfigPath = file_exists("$path/config/project/project.yaml")
+            ? "$path/config/project/project.yaml"
+            : "$path/config/craft/project/project.yaml";
+
+        $this->reportPluginCompatibility($composerLockPath);
+        $this->legacyElementGroups = $this->findLegacyElementGroups(dirname($projectConfigPath));
+        $this->reportLegacyElementGroups();
+
         if ($this->findPublicPath($path) === self::FAILURE) {
             return self::FAILURE;
         }
+
+        $this->originalPublicPath = $this->publicPath;
 
         if ($this->publicPath !== 'public' && ! file_exists("$path/public")) {
             $this->renamePublicPath = confirm(
@@ -103,16 +136,28 @@ class RevampCommand extends Command
 
         warning($warning);
 
-        if (! confirm(label: 'Proceed?', hint: 'Any customizations will be lost.')) {
+        $customized = false;
+        foreach (["{$this->publicPath}/index.php", 'bootstrap.php'] as $file) {
+            $customLines = StockCraftFiles::customLines("$path/$file");
+
+            if ($customLines !== []) {
+                $customized = true;
+                warning("$file has customizations that will be lost:");
+                note(implode("\n", $customLines));
+            }
+        }
+
+        if (! confirm(label: 'Proceed?', hint: $customized ? 'The customizations above will be lost.' : 'No customizations were found.')) {
             warning('Cancelled.');
 
             return self::FAILURE;
         }
 
-        $projectConfigPath = file_exists("$path/config/project/project.yaml")
-            ? "$path/config/project/project.yaml"
-            : "$path/config/craft/project/project.yaml";
-        $filesystemSuggestions = (new FilesystemMigrationSuggestions)->get($projectConfigPath);
+        $filesystemSuggestions = (new FilesystemMigrationSuggestions)->get(
+            $projectConfigPath,
+            $this->renamePublicPath ? 'public' : $this->publicPath,
+        );
+        $emailTransport = $this->findEmailTransport($projectConfigPath);
 
         $this->runSteps([
             'Updating composer.json' => fn (Logger $logger) => $this->updateComposer($logger, $composerJsonPath),
@@ -124,12 +169,14 @@ class RevampCommand extends Command
             'Creating framework storage folders' => fn (Logger $logger) => $this->addFrameworkFolders($logger, $path),
             'Moving Craft config directory' => fn (Logger $logger) => $this->moveConfigDirectory($logger, $path),
             'Publishing Laravel configuration' => fn (Logger $logger) => $this->publishLaravelConfig($logger, $path),
+            'Updating config/craft/general.php' => fn (Logger $logger) => $this->updateGeneralConfig($logger, $path),
             'Renaming translations directory' => fn (Logger $logger) => $this->renameTranslations($logger, $path),
             'Moving templates directory' => fn (Logger $logger) => $this->moveTemplates($logger, $path),
             'Renaming the public folder' => fn (Logger $logger) => $this->renamePublic($logger, $path),
             "Updating {$this->publicPath}/index.php" => fn (Logger $logger) => $this->updateIndex($logger, $path),
             'Removing the Craft executable' => fn (Logger $logger) => $this->removeCraft($logger, $path),
             'Removing old bootstrap.php' => fn (Logger $logger) => $this->removeOldBootstrap($logger, $path),
+            'Updating .gitignore' => fn (Logger $logger) => $this->updateGitignore($logger, $path),
         ]);
 
         outro('Finished preparing your project for Craft 6!');
@@ -138,37 +185,41 @@ class RevampCommand extends Command
 
         $generalConfigPath = "$path/config/craft/general.php";
         if (file_exists($generalConfigPath)) {
-            $generalConfig = file_get_contents($generalConfigPath);
-            $contains = fn(string $setting) => preg_match("/\b$setting\b/", $generalConfig);
+            $generalConfig = CraftConfigUpdater::stripComments(file_get_contents($generalConfigPath));
 
-            if ($this->renamePublicPath) {
-                $aliases = collect(['web', 'webroot'])
-                    ->filter(fn (string $alias) => preg_match("/\b@?$alias\b/", $generalConfig))
-                    ->all();
-
-                if (! empty($aliases)) {
-                    $steps[] = sprintf(
-                        'Update the %s %s in config/craft/general.php',
-                        implode(' and ', array_map(fn (string $alias) => "<options=bold>@$alias</>", $aliases)),
-                        count($aliases) === 1 ? 'alias' : 'aliases',
-                    );
-                }
-            }
-
-            $deprecatedSettings = collect(['omitScriptNameInUrls', 'pathParam'])
-                ->filter(fn (string $setting) => $contains($setting))
-                ->all();
-
-            if (! empty($deprecatedSettings)) {
-                $steps[] = sprintf(
-                    'Remove <options=bold>%s</> from config/craft/general.php',
-                    implode(' and ', array_map(fn (string $setting) => $setting, $deprecatedSettings)),
-                );
-            }
-
-            if (! $contains('loginPath')) {
+            if (! preg_match('/\bloginPath\b/', $generalConfig)) {
                 $steps[] = 'Add <options=bold>loginPath</> to config/craft/general.php if you have a front-end login form';
             }
+        }
+
+        if ($this->unresolvedPathFiles !== []) {
+            $steps[] = sprintf(
+                'Update the paths in %s that were relative to the project root or the old web root, using <options=bold>base_path()</> or <options=bold>public_path()</>, since the config now lives in config/craft/',
+                implode(', ', $this->unresolvedPathFiles),
+            );
+        }
+
+        foreach ($this->remainingRemovedSettings as $file => $settings) {
+            $steps[] = sprintf(
+                'Remove <options=bold>%s</> from %s. %s no longer supported in Craft 6',
+                implode('</>, <options=bold>', $settings),
+                $file,
+                count($settings) === 1 ? 'It is' : 'They are',
+            );
+        }
+
+        array_push($steps, ...$this->craftConfigSteps($path));
+
+        if (! empty($this->legacyElementGroups)) {
+            $steps[] = sprintf(
+                'Craft 6 only supports %s as legacy elements through craftcms/yii2-adapter. To convert them to entries, restore the Craft 5 project and run %s, then run this tool again',
+                implode(', ', array_keys($this->legacyElementGroups)),
+                implode(', ', $this->entrifyCommands()),
+            );
+        }
+
+        if ($emailTransport !== null) {
+            $steps[] = $emailTransport;
         }
 
         if ($this->movedOAuthKeys) {
@@ -187,6 +238,14 @@ class RevampCommand extends Command
 
         if (! empty($filesystemSuggestions)) {
             $steps[] = "Craft Filesystems have been removed. Add the following Laravel disks to the <options=bold>disks</> array in config/filesystems.php:\n\n".implode("\n\n", $filesystemSuggestions);
+        }
+
+        if (! empty($this->incompatiblePackages)) {
+            $steps[] = sprintf(
+                'Remove or replace %s, which %s no Craft 6 version on Packagist yet, so <options=bold>composer update</> can resolve',
+                implode(', ', array_map(fn (string $name) => "<options=bold>$name</>", $this->incompatiblePackages)),
+                count($this->incompatiblePackages) === 1 ? 'has' : 'have',
+            );
         }
 
         $steps[] = "Run <options=bold>{$ddevPrefix}composer update</>";
@@ -214,6 +273,300 @@ class RevampCommand extends Command
         }
 
         return null;
+    }
+
+    private function confirmGitStatus(string $path): bool
+    {
+        $output = [];
+        @exec(sprintf('git -C %s status --porcelain -- . 2>&1', escapeshellarg($path)), $output, $exitCode);
+
+        // Not a Git repository, or Git isn’t installed
+        if ($exitCode !== 0) {
+            return true;
+        }
+
+        $changes = array_values(array_filter($output));
+
+        if ($changes === []) {
+            return true;
+        }
+
+        warning(sprintf('The project has %d uncommitted %s. Commit or stash them first, so you can review and undo what this tool changes.', count($changes), count($changes) === 1 ? 'change' : 'changes'));
+        note(implode("\n", array_slice($changes, 0, 10)).(count($changes) > 10 ? "\n…" : ''));
+
+        return confirm(label: 'Continue with uncommitted changes?', default: false);
+    }
+
+    private function confirmPartialRun(string $path): bool
+    {
+        $existing = array_values(array_filter(
+            ['bootstrap/', 'config/craft/'],
+            fn (string $dir) => is_dir("$path/$dir"),
+        ));
+
+        if ($existing === []) {
+            return true;
+        }
+
+        warning(sprintf(
+            '%s already %s, so this tool may have run here before. Steps that already happened will be skipped, and files they created won’t be updated.',
+            implode(' and ', $existing),
+            count($existing) === 1 ? 'exists' : 'exist',
+        ));
+
+        return confirm(label: 'Continue anyway?', default: false, hint: 'Restore the project first for a clean run.');
+    }
+
+    private function reportPluginCompatibility(string $composerLockPath): void
+    {
+        $compatibility = new PluginCompatibility;
+        $dependents = $compatibility->dependents($composerLockPath);
+
+        if ($dependents === []) {
+            return;
+        }
+
+        info('Checking Packagist for Craft 6 versions of packages that require craftcms/cms…');
+        $results = $compatibility->check(array_keys($dependents));
+
+        table(
+            ['Package', 'Installed', 'Craft 6'],
+            collect($results)
+                ->map(fn (array $result, string $name) => [
+                    $name,
+                    $dependents[$name],
+                    match ($result['status']) {
+                        PluginCompatibility::STATUS_COMPATIBLE => "✓ {$result['version']}",
+                        PluginCompatibility::STATUS_INCOMPATIBLE => '✗ No Craft 6 version yet',
+                        PluginCompatibility::STATUS_NOT_FOUND => '? Not on Packagist',
+                        default => '? Packagist couldn’t be reached',
+                    },
+                ])
+                ->values()
+                ->all(),
+        );
+
+        $this->incompatiblePackages = array_keys(array_filter(
+            $results,
+            fn (array $result) => $result['status'] === PluginCompatibility::STATUS_INCOMPATIBLE,
+        ));
+
+        if ($this->incompatiblePackages !== []) {
+            warning('composer update won’t resolve until the packages without a Craft 6 version are removed or replaced.');
+        }
+    }
+
+    /**
+     * @return array<string, string[]>
+     */
+    private function findLegacyElementGroups(string $projectConfigDir): array
+    {
+        $types = [
+            'categoryGroups' => 'category groups',
+            'tagGroups' => 'tag groups',
+            'globalSets' => 'global sets',
+        ];
+
+        $projectConfig = $this->parseYaml("$projectConfigDir/project.yaml") ?? [];
+        $groups = [];
+
+        foreach ($types as $key => $label) {
+            $configs = is_array($projectConfig[$key] ?? null) ? array_values($projectConfig[$key]) : [];
+
+            foreach (glob("$projectConfigDir/$key/*.yaml") ?: [] as $file) {
+                $configs[] = $this->parseYaml($file);
+            }
+
+            $handles = collect($configs)
+                ->map(fn (mixed $config) => is_array($config) ? ($config['handle'] ?? null) : null)
+                ->filter(fn (mixed $handle) => is_string($handle))
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            if ($handles !== []) {
+                $groups[$label] = $handles;
+            }
+        }
+
+        return $groups;
+    }
+
+    private function reportLegacyElementGroups(): void
+    {
+        if ($this->legacyElementGroups === []) {
+            return;
+        }
+
+        warning(sprintf(
+            'The project has %s. Craft 6 only supports them as legacy elements through craftcms/yii2-adapter. To convert them to entries, cancel and run these commands on Craft 5 first:',
+            implode(', ', array_keys($this->legacyElementGroups)),
+        ));
+        note(implode("\n", $this->entrifyCommands()));
+    }
+
+    /**
+     * @return string[]
+     */
+    private function entrifyCommands(): array
+    {
+        $commands = [
+            'category groups' => 'categories',
+            'tag groups' => 'tags',
+            'global sets' => 'global-set',
+        ];
+        $lines = [];
+
+        foreach ($this->legacyElementGroups as $label => $handles) {
+            foreach ($handles as $handle) {
+                $lines[] = "php craft entrify/{$commands[$label]} $handle";
+            }
+        }
+
+        return $lines;
+    }
+
+    private function findEmailTransport(string $projectConfigPath): ?string
+    {
+        $email = $this->parseYaml($projectConfigPath)['email'] ?? null;
+        $type = is_array($email) ? ($email['transportType'] ?? null) : null;
+
+        if (! is_string($type) || $type === '') {
+            return null;
+        }
+
+        // Laravel mailers, indexed by a pattern matching the Craft transport adapter classes
+        $mailers = [
+            '/gmail|smtp/i' => 'smtp',
+            '/sendmail/i' => 'sendmail',
+            '/mailgun/i' => 'mailgun',
+            '/postmark/i' => 'postmark',
+            '/resend/i' => 'resend',
+            '/amazonses|\\\\ses\\b/i' => 'ses',
+        ];
+        $mailer = collect($mailers)->first(fn (string $mailer, string $pattern) => preg_match($pattern, $type));
+
+        $settings = is_array($email['transportSettings'] ?? null) ? $email['transportSettings'] : [];
+        $details = collect(['host', 'port', 'username', 'encryptionMethod', 'domain', 'endpoint'])
+            ->filter(fn (string $key) => is_scalar($settings[$key] ?? null) && (string) $settings[$key] !== '')
+            ->map(fn (string $key) => "$key: {$settings[$key]}")
+            ->implode(', ');
+        $details = $details === '' ? '' : " ($details)";
+
+        if ($mailer === null) {
+            return "Craft no longer reads the email transport from project config. Configure a Laravel mailer in config/mail.php to replace <options=bold>$type</>$details, and set <options=bold>MAIL_MAILER</> in .env";
+        }
+
+        if ($mailer === 'sendmail') {
+            return 'Craft no longer reads the email transport from project config. Set <options=bold>MAIL_MAILER=sendmail</> in .env to keep sending email with Sendmail';
+        }
+
+        return sprintf(
+            'Craft no longer reads the email transport from project config. Set <options=bold>MAIL_MAILER=%s</> in .env and configure the <options=bold>%s</> mailer in config/mail.php to replace <options=bold>%s</>%s%s',
+            $mailer,
+            $mailer,
+            $type,
+            $details,
+            in_array($mailer, ['mailgun', 'postmark', 'resend', 'ses']) ? ", following https://laravel.com/docs/mail#driver-prerequisites" : '',
+        );
+    }
+
+    /**
+     * @return array<mixed>|null
+     */
+    private function parseYaml(string $path): ?array
+    {
+        if (! is_file($path)) {
+            return null;
+        }
+
+        try {
+            $data = Yaml::parseFile($path);
+        } catch (ParseException) {
+            return null;
+        }
+
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * Suggests next steps for Craft config files that Craft 6 no longer reads, or only reads through the Yii2 adapter.
+     *
+     * @return string[]
+     */
+    private function craftConfigSteps(string $path): array
+    {
+        $configPath = "$path/config/craft";
+
+        if (! is_dir($configPath)) {
+            return [];
+        }
+
+        $steps = [];
+        $read = fn (string $file) => CraftConfigUpdater::stripComments(file_get_contents("$configPath/$file"));
+        $files = array_map('basename', glob("$configPath/*.php") ?: []);
+
+        $multiEnvFiles = array_values(array_filter(
+            $files,
+            fn (string $file) => preg_match('/([\'"])\*\1\s*=>/', $read($file)),
+        ));
+
+        if ($multiEnvFiles !== []) {
+            $steps[] = sprintf(
+                'Replace the multi-environment config arrays (the <options=bold>\'*\'</> key) in %s with <options=bold>env()</> values or <options=bold>app()->environment()</> checks. Craft 6 reads config files as-is',
+                implode(', ', array_map(fn (string $file) => "config/craft/$file", $multiEnvFiles)),
+            );
+        }
+
+        $appTypeFiles = array_values(array_filter(
+            $files,
+            fn (string $file) => preg_match('/^\w[\w-]*\.(web|console)\.php$/', $file),
+        ));
+
+        if ($appTypeFiles !== []) {
+            $steps[] = sprintf(
+                'Merge %s into the main config %s. Craft 6 only reads app-type config files through craftcms/yii2-adapter',
+                implode(', ', array_map(fn (string $file) => "config/craft/$file", $appTypeFiles)),
+                count($appTypeFiles) === 1 ? 'file' : 'files',
+            );
+        }
+
+        if (in_array('db.php', $files)) {
+            $steps[] = 'Move your database settings from config/craft/db.php into config/database.php or the <options=bold>DB_*</> environment variables, and delete it. Craft 6 no longer reads it';
+        }
+
+        if (in_array('app.php', $files)) {
+            $keys = array_values(array_filter(
+                ['components', 'modules', 'bootstrap'],
+                fn (string $key) => preg_match("/(['\"])$key\\1\\s*=>/", $read('app.php')),
+            ));
+
+            if ($keys !== []) {
+                $steps[] = sprintf(
+                    'config/craft/app.php defines Yii <options=bold>%s</>, which only craftcms/yii2-adapter reads. Move them to Laravel service providers when you can',
+                    implode('</>, <options=bold>', $keys),
+                );
+            }
+        }
+
+        if (in_array('routes.php', $files) && ! preg_match('/^\s*<\?php\s*return\s*(\[\s*\]|array\(\s*\))\s*;\s*$/', $read('routes.php'))) {
+            $steps[] = 'Translate the URL rules in config/craft/routes.php into routes/web.php. Craft 6 only reads them through craftcms/yii2-adapter';
+        }
+
+        $purifierConfigs = array_values(array_filter(
+            array_map('basename', glob("$configPath/htmlpurifier/*.json") ?: []),
+            fn (string $file) => $file !== 'Default.json',
+        ));
+
+        if ($purifierConfigs !== []) {
+            $steps[] = sprintf(
+                'Craft 6 replaces HTMLPurifier with Symfony HtmlSanitizer. Register sanitizers for %s with the <options=bold>HtmlSanitizers</> facade (see vendor/craftcms/cms/docs/html-sanitizers.md)',
+                implode(', ', array_map(fn (string $file) => "config/craft/htmlpurifier/$file", $purifierConfigs)),
+            );
+        }
+
+        return $steps;
     }
 
     /**
@@ -286,6 +639,17 @@ class RevampCommand extends Command
         $logger->success('Updated dependencies');
 
         unset($config['require']['vlucas/phpdotenv']);
+
+        // Craft 6 has no `craft shell` command; Laravel Tinker (`artisan tinker`) replaces it
+        if (isset($config['require']['yiisoft/yii2-shell']) || isset($config['require-dev']['yiisoft/yii2-shell'])) {
+            unset($config['require']['yiisoft/yii2-shell'], $config['require-dev']['yiisoft/yii2-shell']);
+
+            if (empty($config['require-dev'])) {
+                unset($config['require-dev']);
+            }
+
+            $logger->success('Removed yiisoft/yii2-shell');
+        }
         unset($config['config']['platform']['php']);
 
         // Otherwise it ends up as `platform: []` which is invalid.
@@ -489,6 +853,10 @@ class RevampCommand extends Command
             '.ddev/.env',
             '.ddev/.env.web',
             '.env',
+            '.env.example',
+            '.env.example.dev',
+            '.env.example.staging',
+            '.env.example.production',
         ]);
 
         $map = [
@@ -500,6 +868,7 @@ class RevampCommand extends Command
             'CRAFT_DB_DATABASE' => 'DB_DATABASE',
             'CRAFT_DB_SCHEMA' => 'DB_SCHEMA',
             'CRAFT_DB_TABLE_PREFIX' => 'DB_TABLE_PREFIX',
+            'CRAFT_DB_TABLE' => 'DB_TABLE_PREFIX',
             'CRAFT_DEV_MODE' => 'APP_DEBUG',
             'CRAFT_SECURITY_KEY' => false,
         ];
@@ -518,13 +887,24 @@ class RevampCommand extends Command
             foreach ($map as $old => $new) {
                 if (isset($vars[$old])) {
                     $remove[] = $old;
-                    if ($new !== false) {
+                    if ($new !== false && ! isset($add[$new])) {
                         $add[$new] = $vars[$old];
                     }
                 }
             }
 
-            if ($envPath === '.env') {
+            // Without APP_ENV, Laravel assumes production. CRAFT_ENVIRONMENT and PRIMARY_SITE_URL are kept,
+            // since templates and project config may still reference them.
+            $environment = $vars['CRAFT_ENVIRONMENT'] ?? $vars['ENVIRONMENT'] ?? null;
+            if (! isset($vars['APP_ENV']) && $environment !== null && $environment !== '') {
+                $add['APP_ENV'] = $environment === 'dev' ? 'local' : $environment;
+            }
+
+            if (! isset($vars['APP_URL']) && ($vars['PRIMARY_SITE_URL'] ?? '') !== '') {
+                $add['APP_URL'] = $vars['PRIMARY_SITE_URL'];
+            }
+
+            if ($envPath === '.env' || str_starts_with($envPath, '.env.example')) {
                 $add['CACHE_STORE'] = 'file';
                 $add['SESSION_DRIVER'] = 'file';
                 $add['APP_KEY'] = '';
@@ -725,6 +1105,101 @@ PHP;
         }
 
         $logger->success("Published $published Laravel configuration files.");
+    }
+
+    private function updateGeneralConfig(Logger $logger, string $path): void
+    {
+        $files = array_values(array_filter(
+            ['general.php', 'general.web.php', 'general.console.php'],
+            fn (string $file) => file_exists("$path/config/craft/$file"),
+        ));
+
+        if ($files === []) {
+            $logger->warning('No config/craft/general.php file found.');
+
+            return;
+        }
+
+        $updater = new CraftConfigUpdater(
+            $this->originalPublicPath,
+            $this->renamePublicPath ? 'public' : $this->publicPath,
+        );
+
+        foreach ($files as $file) {
+            $filePath = "$path/config/craft/$file";
+            $original = file_get_contents($filePath);
+            [$contents, $pathCount] = $updater->rewritePaths($original);
+            [$contents, $removedSettings] = $updater->removeSettings($contents);
+
+            // Never write a file we broke. The tool may run on an older PHP than the project (e.g. on the host
+            // with DDEV), so only check files that parse on this PHP to begin with.
+            if ($contents !== $original && $this->isValidPhp($original) && ! $this->isValidPhp($contents)) {
+                $logger->warning("config/craft/$file couldn’t be updated safely, so it was left as-is.");
+                $contents = $original;
+                $pathCount = 0;
+                $removedSettings = [];
+            }
+
+            if ($contents !== $original) {
+                file_put_contents($filePath, $contents);
+            }
+
+            if ($pathCount > 0) {
+                $logger->success(sprintf('Updated %d %s in config/craft/%s that pointed into the project root', $pathCount, $pathCount === 1 ? 'path' : 'paths', $file));
+            }
+
+            if ($removedSettings !== []) {
+                $logger->success(sprintf('Removed %s from config/craft/%s', implode(', ', $removedSettings), $file));
+            }
+
+            if ($updater->hasUnresolvedPaths($contents)) {
+                $this->unresolvedPathFiles[] = "config/craft/$file";
+            }
+
+            $remaining = $updater->remainingSettings($contents);
+            if ($remaining !== []) {
+                $this->remainingRemovedSettings["config/craft/$file"] = $remaining;
+            }
+        }
+
+        if ($this->unresolvedPathFiles !== [] || $this->remainingRemovedSettings !== []) {
+            $logger->warning('Some settings need to be updated by hand. See the next steps.');
+        }
+    }
+
+    private function isValidPhp(string $contents): bool
+    {
+        try {
+            token_get_all($contents, TOKEN_PARSE);
+        } catch (\ParseError) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function updateGitignore(Logger $logger, string $path): void
+    {
+        $gitignorePath = "$path/.gitignore";
+        $contents = file_exists($gitignorePath) ? file_get_contents($gitignorePath) : '';
+        $existing = array_map('trim', preg_split('/\R/', $contents));
+
+        // Control panel assets published by craft:setup:publish, the public storage symlink, and the Passport keys
+        $missing = array_values(array_diff(['/public/vendor/craft', '/public/storage', '/storage/*.key'], $existing));
+
+        if ($missing === []) {
+            $logger->success('.gitignore is already up to date.');
+
+            return;
+        }
+
+        if ($contents !== '' && ! str_ends_with($contents, "\n")) {
+            $contents .= "\n";
+        }
+
+        file_put_contents($gitignorePath, $contents.implode("\n", $missing)."\n");
+
+        $logger->success(sprintf('Added %s to .gitignore', implode(', ', $missing)));
     }
 
     private function renameTranslations(Logger $logger, string $path): void
