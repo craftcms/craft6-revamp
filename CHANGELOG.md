@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## 1.3.1 - 2026-10-29
 
 - Removed the “Run artisan craft:setup:publish” next step, since `composer update` already runs it through the `post-autoload-dump` scripts the command adds.
 - The command now flags general config settings that moved into Laravel config (`timezone`, `defaultCookieDomain`, `blowfishHashCost`, `phpSessionName`, `systemMessageTemplate`, `elevatedSessionDuration`, and `testToEmailAddress`), and says where each one goes.
