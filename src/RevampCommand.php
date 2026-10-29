@@ -4,6 +4,7 @@ namespace CraftCms\Revamp;
 
 use CraftCms\Revamp\Advisors\Advisor;
 use CraftCms\Revamp\Advisors\CraftConfigAdvisor;
+use CraftCms\Revamp\Advisors\EnvVarReferencesAdvisor;
 use CraftCms\Revamp\Advisors\FilesystemDisksAdvisor;
 use CraftCms\Revamp\Advisors\FinalCommandsAdvisor;
 use CraftCms\Revamp\Advisors\MailerAdvisor;
@@ -94,6 +95,7 @@ class RevampCommand extends Command
     {
         return [
             new CraftConfigAdvisor,
+            new EnvVarReferencesAdvisor,
             new MailerAdvisor,
             new OAuthKeySettingsAdvisor,
             new FilesystemDisksAdvisor,

@@ -2,7 +2,11 @@
 
 namespace CraftCms\Revamp\Tests;
 
+use CraftCms\Revamp\Checks\PluginCompatibilityCheck;
 use CraftCms\Revamp\PluginCompatibility;
+use CraftCms\Revamp\Project;
+use Laravel\Prompts\Prompt;
+use Symfony\Component\Console\Output\BufferedOutput;
 use PHPUnit\Framework\TestCase;
 
 class PluginCompatibilityTest extends TestCase
@@ -92,5 +96,41 @@ class PluginCompatibilityTest extends TestCase
     private function metadata(string $name, array $versions): string
     {
         return json_encode(['minified' => 'composer/2.0', 'packages' => [$name => $versions]]);
+    }
+
+    public function test_it_flags_plugins_that_laravel_config_replaces(): void
+    {
+        $project = new Project(sys_get_temp_dir().'/craft6-revamp-plugins-'.bin2hex(random_bytes(8)));
+        mkdir($project->path());
+        file_put_contents($project->path('composer.lock'), json_encode(['packages' => array_map(
+            fn (string $name) => ['name' => $name, 'version' => '1.0.0', 'require' => ['craftcms/cms' => '^5.0']],
+            ['craftcms/aws-s3', 'craftcms/azure-blob', 'putyourlightson/craft-sendgrid', 'vendor/craft-mailgun-adapter', 'vendor/craft-logtail', 'vendor/craft-blog', 'vendor/sessions', 'vendor/azure-ad-login'],
+        )]));
+        $output = new BufferedOutput;
+        Prompt::setOutput($output);
+
+        try {
+            // Packagist has no Craft 6 version of anything
+            (new PluginCompatibilityCheck(new PluginCompatibility(fn () => json_encode(['packages' => []]))))->passes($project);
+        } finally {
+            unlink($project->path('composer.lock'));
+            rmdir($project->path());
+        }
+
+        $steps = implode("\n", $project->nextSteps());
+
+        self::assertStringContainsString('<options=bold>craftcms/aws-s3</> is probably no longer needed in Craft 6. Replace it with a Laravel disk in config/filesystems.php', $steps);
+        self::assertStringContainsString('<options=bold>craftcms/azure-blob</> is probably no longer needed in Craft 6. Replace it with a Laravel disk', $steps);
+        self::assertStringContainsString('<options=bold>putyourlightson/craft-sendgrid</> is probably no longer needed in Craft 6. Replace it with a Laravel mailer in config/mail.php', $steps);
+        self::assertStringContainsString('<options=bold>vendor/craft-mailgun-adapter</> is probably no longer needed in Craft 6. Replace it with a Laravel mailer', $steps);
+        self::assertStringContainsString('<options=bold>vendor/craft-logtail</> is probably no longer needed in Craft 6. Replace it with a Laravel logging channel in config/logging.php', $steps);
+        self::assertStringContainsString('probably no longer needed', $output->fetch());
+
+        // Similar names that aren't filesystem, mail, or log plugins are only reported as incompatible
+        $incompatible = collect($project->nextSteps())->first(fn (string $step) => str_starts_with($step, 'Remove or replace'));
+        self::assertSame(
+            'Remove or replace <options=bold>vendor/azure-ad-login</>, <options=bold>vendor/craft-blog</>, <options=bold>vendor/sessions</>, which have no Craft 6 version on Packagist yet, so <options=bold>composer update</> can resolve',
+            $incompatible,
+        );
     }
 }

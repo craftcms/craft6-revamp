@@ -22,7 +22,7 @@ class UpdateEnvVars implements Step
     /**
      * Craft variables, and the Laravel variables that replace them (`false` to remove them).
      */
-    private const MAP = [
+    const MAP = [
         'CRAFT_DB_DRIVER' => 'DB_CONNECTION',
         'CRAFT_DB_SERVER' => 'DB_HOST',
         'CRAFT_DB_PORT' => 'DB_PORT',

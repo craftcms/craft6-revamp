@@ -31,7 +31,7 @@ You will be prompted before the tool takes potentially destructive actions, and 
 - Verifies the project has `composer.json` and `composer.lock` files, and runs Craft 5.9.0 or later;
 - Asks before continuing if the project has uncommitted Git changes;
 - Asks before continuing if `bootstrap/` or `config/craft/` already exist, which means the tool has probably run before. Steps that already happened are skipped, and files they created aren’t updated;
-- Lists the packages in `composer.lock` that require `craftcms/cms` (plugins, and packages like `craftcms/generator`), and whether Packagist has a version of each that supports Craft 6. This is only a report; it’s skipped when Packagist can’t be reached;
+- Lists the packages in `composer.lock` that require `craftcms/cms` (plugins, and packages like `craftcms/generator`), and whether Packagist has a version of each that supports Craft 6. This is only a report; it’s skipped when Packagist can’t be reached. Filesystem, mail transport, and logging plugins are flagged as probably no longer needed, since Laravel disks, mailers, and logging channels replace them;
 - Warns about category groups, tag groups, and global sets, and prints the `php craft entrify/*` commands to convert them to entries on Craft 5;
 - Finds the web root, and asks whether to rename it to `public/`;
 - Shows the lines of a customized `index.php` or `bootstrap.php` that will be lost, then asks to proceed.
@@ -55,8 +55,10 @@ Finally, the tool lists the follow-up actions that apply to your project, such a
 - Laravel disks to add to `config/filesystems.php`, based on your Craft filesystems;
 - The Laravel mailer that replaces your email transport;
 - Settings and paths the tool couldn’t update safely;
+- General config settings that moved into Laravel config (`timezone`, `defaultCookieDomain`, `blowfishHashCost`, `phpSessionName`, `systemMessageTemplate`, `elevatedSessionDuration`, and `testToEmailAddress`), and where each one goes now;
+- References to the renamed `CRAFT_DB_*`, `CRAFT_DEV_MODE`, and `CRAFT_SECURITY_KEY` variables in config files, `.github/`, `docker-compose*.yml`, `Dockerfile*`, `.platform*`, `fly.toml`, and `render.yaml`;
 - Multi-environment config arrays, app-type config files, `db.php`, Yii components and modules in `app.php`, URL rules in `routes.php`, and custom HTMLPurifier configs;
-- Plugins without a Craft 6 version;
+- Plugins without a Craft 6 version, and plugins that Laravel configuration replaces;
 - `composer update` (which also publishes Craft’s assets and config via `artisan craft:setup:publish`), `artisan key:generate`, and `artisan craft:up` to run Craft 6’s migrations.
 
 ## What it doesn’t do

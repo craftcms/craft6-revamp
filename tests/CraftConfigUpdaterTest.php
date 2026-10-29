@@ -146,4 +146,27 @@ PHP, $contents);
         self::assertTrue($updater->hasUnresolvedPaths($contents));
         self::assertFalse((new CraftConfigUpdater('web', 'web'))->hasUnresolvedPaths($contents));
     }
+
+    public function test_it_finds_settings_that_moved_into_laravel_config(): void
+    {
+        $contents = <<<'PHP'
+<?php
+
+// blowfishHashCost used to be set here
+return GeneralConfig::create()
+    ->timezone('Europe/Brussels')
+    ->testToEmailAddress(App::env('TEST_EMAIL'))
+    ->aliases(['@phpSessionName' => '/tmp'])
+    ->merge([
+        'defaultCookieDomain' => '.example.com',
+        "elevatedSessionDuration" => 600,
+    ]);
+PHP;
+
+        // Comments, and the names inside other values, aren't settings
+        self::assertSame(
+            ['timezone', 'defaultCookieDomain', 'elevatedSessionDuration', 'testToEmailAddress'],
+            (new CraftConfigUpdater('web', 'public'))->movedSettings($contents),
+        );
+    }
 }

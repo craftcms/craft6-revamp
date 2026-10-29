@@ -35,6 +35,7 @@ class UpdateGeneralConfig implements Step
         $updater = new CraftConfigUpdater($project->originalPublicPath, $project->targetPublicPath());
         $unresolvedPathFiles = [];
         $remainingSettings = [];
+        $movedSettings = [];
 
         foreach ($this->files($project) as $file) {
             $filePath = $project->path("config/craft/$file");
@@ -67,6 +68,10 @@ class UpdateGeneralConfig implements Step
                 $unresolvedPathFiles[] = "config/craft/$file";
             }
 
+            foreach ($updater->movedSettings($contents) as $setting) {
+                $movedSettings[$setting][] = "config/craft/$file";
+            }
+
             $remaining = $updater->remainingSettings($contents);
             if ($remaining !== []) {
                 $remainingSettings["config/craft/$file"] = $remaining;
@@ -81,6 +86,15 @@ class UpdateGeneralConfig implements Step
             $project->suggest(NextStepSection::GeneralConfig, sprintf(
                 'Update the paths in %s that were relative to the project root or the old web root, using <options=bold>base_path()</> or <options=bold>public_path()</>, since the config now lives in config/craft/',
                 implode(', ', $unresolvedPathFiles),
+            ));
+        }
+
+        foreach ($movedSettings as $setting => $files) {
+            $project->suggest(NextStepSection::GeneralConfig, sprintf(
+                'Move <options=bold>%s</> out of %s, since Craft 6 no longer reads it. Use %s instead',
+                $setting,
+                implode(', ', $files),
+                CraftConfigUpdater::MOVED_SETTINGS[$setting],
             ));
         }
 

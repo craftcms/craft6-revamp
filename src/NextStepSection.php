@@ -10,6 +10,7 @@ enum NextStepSection
 {
     case GeneralConfig;
     case CraftConfig;
+    case EnvVars;
     case LegacyElements;
     case Mail;
     case OAuth;

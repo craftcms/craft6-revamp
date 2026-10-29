@@ -239,13 +239,19 @@ PHP);
 return [
     '*' => [
         'enableTwigSandbox' => true,
+        // blowfishHashCost is set in .env
+        'timezone' => 'Europe/Brussels',
         'aliases' => ['@libs' => CRAFT_VENDOR_PATH . '/libs'],
     ],
 ];
 
 PHP);
-        file_put_contents("{$this->projectPath}/config/general.web.php", "<?php return GeneralConfig::create()->pathParam(App::env(strtoupper('p')) ?: 'p');\n");
-        file_put_contents("{$this->projectPath}/config/db.php", "<?php return ['tablePrefix' => 'craft_'];\n");
+        file_put_contents("{$this->projectPath}/config/general.web.php", "<?php return GeneralConfig::create()->pathParam(App::env(strtoupper('p')) ?: 'p')->testToEmailAddress('dev@example.com');\n");
+        file_put_contents("{$this->projectPath}/config/db.php", "<?php return ['tablePrefix' => App::env('CRAFT_DB_TABLE_PREFIX'), 'server' => App::env('CRAFT_DB_SERVER')];\n");
+        mkdir("{$this->projectPath}/.github/workflows", recursive: true);
+        file_put_contents("{$this->projectPath}/.github/workflows/deploy.yml", "env:\n  CRAFT_DEV_MODE: false\n  CRAFT_SECURITY_KEY: \${{ secrets.KEY }}\n  CRAFT_DB_DRIVER: mysql\n");
+        file_put_contents("{$this->projectPath}/docker-compose.dev.yml", "services:\n  web:\n    environment:\n      CRAFT_DB_PASSWORD: secret\n");
+        file_put_contents("{$this->projectPath}/Dockerfile", "FROM php:8.5\n");
         file_put_contents("{$this->projectPath}/config/app.php", "<?php return ['id' => 'CraftCMS', 'modules' => ['site' => \\modules\\Module::class]];\n");
         file_put_contents("{$this->projectPath}/config/routes.php", "<?php\n// Site URL rules\nreturn ['blog/<slug>' => ['template' => 'blog/_entry']];\n");
         mkdir("{$this->projectPath}/config/htmlpurifier");
@@ -284,6 +290,18 @@ YAML);
         self::assertStringContainsString('Set MAIL_MAILER=smtp in .env and configure the smtp mailer in config/mail.php', $display);
         self::assertStringContainsString('host: smtp.example.com, port: 587', $display);
         self::assertStringNotContainsString('enableTwigSandbox', file_get_contents("{$this->projectPath}/config/craft/general.php"));
+
+        // Moved settings are flagged with where they go now, but left in place
+        self::assertStringContainsString('Move timezone out of config/craft/general.php, since Craft 6 no longer reads it. Use the timezone key in config/app.php', $display);
+        self::assertStringContainsString('Move testToEmailAddress out of config/craft/general.web.php, since Craft 6 no longer reads it. Use Mail::alwaysTo()', $display);
+        self::assertStringNotContainsString('Move blowfishHashCost', $display);
+        self::assertStringContainsString("'timezone' => 'Europe/Brussels'", file_get_contents("{$this->projectPath}/config/craft/general.php"));
+
+        // Renamed environment variables are flagged in each file outside .env
+        self::assertStringContainsString('.github/workflows/deploy.yml: CRAFT_DB_DRIVER → DB_CONNECTION, CRAFT_DEV_MODE → APP_DEBUG, CRAFT_SECURITY_KEY (remove it; Laravel uses APP_KEY)', $display);
+        self::assertStringContainsString('config/craft/db.php: CRAFT_DB_SERVER → DB_HOST, CRAFT_DB_TABLE_PREFIX → DB_TABLE_PREFIX', $display);
+        self::assertStringContainsString('docker-compose.dev.yml: CRAFT_DB_PASSWORD → DB_PASSWORD', $display);
+        self::assertStringNotContainsString('Dockerfile:', $display);
 
         // Next steps keep the same order, whether a check, a step, or an advisor added them
         $nextSteps = substr($display, strpos($display, 'Next steps'));

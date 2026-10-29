@@ -13,6 +13,20 @@ class CraftConfigUpdater
     const REMOVED_SETTINGS = ['omitScriptNameInUrls', 'pathParam', 'enableTwigSandbox'];
 
     /**
+     * General config settings that Craft 6 removed or moved into Laravel config, and where each one goes now.
+     * These are only flagged, since their values need to move somewhere else.
+     */
+    const MOVED_SETTINGS = [
+        'timezone' => 'the <options=bold>timezone</> key in config/app.php (the timezone in Settings → General still takes precedence)',
+        'defaultCookieDomain' => 'the <options=bold>domain</> key in config/session.php, or the <options=bold>SESSION_DOMAIN</> environment variable',
+        'blowfishHashCost' => '<options=bold>bcrypt.rounds</> in config/hashing.php, or the <options=bold>BCRYPT_ROUNDS</> environment variable',
+        'phpSessionName' => 'the <options=bold>cookie</> key in config/session.php, or the <options=bold>SESSION_COOKIE</> environment variable',
+        'systemMessageTemplate' => 'the HTML email template in Settings → Email',
+        'elevatedSessionDuration' => '<options=bold>password_timeout</> in config/auth.php (the default is now 3 hours)',
+        'testToEmailAddress' => '<options=bold>Mail::alwaysTo()</> in a service provider, or the <options=bold>log</> mailer',
+    ];
+
+    /**
      * Matches the expressions that used to point at the project root, with an optional `'/path'` suffix.
      */
     private const BASE_PATH_PATTERN = <<<'REGEX'
@@ -112,6 +126,22 @@ REGEX;
         return array_values(array_filter(
             self::REMOVED_SETTINGS,
             fn (string $setting) => preg_match("/\b$setting\b/", $code),
+        ));
+    }
+
+    /**
+     * Returns the settings Craft 6 moved into Laravel config that are set in the contents, in either
+     * the fluent `->setting()` or the `'setting' => value` form.
+     *
+     * @return string[]
+     */
+    public function movedSettings(string $contents): array
+    {
+        $code = self::stripComments($contents);
+
+        return array_values(array_filter(
+            array_keys(self::MOVED_SETTINGS),
+            fn (string $setting) => preg_match("/->\\s*$setting\\s*\\(|(['\"])$setting\\1\\s*=>/", $code),
         ));
     }
 

@@ -21,6 +21,15 @@ class PluginCompatibility
 
     const STATUS_UNKNOWN = 'unknown';
 
+    /**
+     * Patterns matching plugins that Laravel configuration replaces in Craft 6, and what replaces them.
+     */
+    private const OBSOLETE_PLUGINS = [
+        '/(?<![a-z0-9])(aws-s3|s3|google-cloud|gcs|azure-?blob|azure-?storage|dospaces|linode-?s3|cloudflare-?r2|r2)(?![a-z0-9])/' => 'a Laravel disk in config/filesystems.php',
+        '/(?<![a-z0-9])(sendgrid|mailgun|postmark|amazon-?ses|ses|mandrill)(?![a-z0-9])/' => 'a Laravel mailer in config/mail.php',
+        '/(?<![a-z0-9])(log|logs|logging|logger|logtail|papertrail)(?![a-z0-9])/' => 'a Laravel logging channel in config/logging.php',
+    ];
+
     /** @var Closure(string $url): (string|false|null) */
     private Closure $fetch;
 
@@ -49,6 +58,20 @@ class PluginCompatibility
         ksort($dependents);
 
         return $dependents;
+    }
+
+    /**
+     * Returns what replaces a plugin that’s probably no longer needed in Craft 6, or `null`.
+     */
+    public static function obsoleteReplacement(string $package): ?string
+    {
+        foreach (self::OBSOLETE_PLUGINS as $pattern => $replacement) {
+            if (preg_match($pattern, strtolower($package))) {
+                return $replacement;
+            }
+        }
+
+        return null;
     }
 
     /**

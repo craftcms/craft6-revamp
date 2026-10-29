@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Removed the “Run artisan craft:setup:publish” next step, since `composer update` already runs it through the `post-autoload-dump` scripts the command adds.
+- The command now flags general config settings that moved into Laravel config (`timezone`, `defaultCookieDomain`, `blowfishHashCost`, `phpSessionName`, `systemMessageTemplate`, `elevatedSessionDuration`, and `testToEmailAddress`), and says where each one goes.
+- The command now flags references to the renamed `CRAFT_DB_*`, `CRAFT_DEV_MODE`, and `CRAFT_SECURITY_KEY` environment variables outside `.env`, in config files, `.github/`, Docker files, `.platform*`, `fly.toml`, and `render.yaml`.
+- The command now flags filesystem, mail transport, and logging plugins that Laravel disks, mailers, and logging channels replace.
 
 ## 1.3.0 - 2026-10-29
 
