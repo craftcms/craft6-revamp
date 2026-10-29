@@ -22,6 +22,9 @@ class RevampCommandTest extends TestCase
 
         $this->projectPath = sys_get_temp_dir().'/craft6-revamp-test-'.bin2hex(random_bytes(8));
 
+        // Wide enough that Next steps aren’t wrapped, so assertions can match whole sentences
+        putenv('COLUMNS=1000');
+
         mkdir("{$this->projectPath}/public", recursive: true);
 
         file_put_contents(
@@ -106,6 +109,7 @@ YAML,
     protected function tearDown(): void
     {
         Prompt::flushState();
+        putenv('COLUMNS');
         $this->removeDirectory($this->projectPath);
 
         parent::tearDown();
@@ -294,6 +298,31 @@ YAML);
         ]);
         self::assertNotContains(false, $positions);
         self::assertSame($positions, collect($positions)->sort()->values()->all());
+    }
+
+    public function test_it_wraps_next_steps_to_the_terminal_width(): void
+    {
+        putenv('COLUMNS=80');
+        file_put_contents("{$this->projectPath}/.env", "CRAFT_OAUTH_PUBLIC_KEY=@root/keys/public.key\n", FILE_APPEND);
+
+        $tester = new CommandTester(new RevampCommand);
+        $tester->execute(['path' => $this->projectPath], ['interactive' => false]);
+
+        $display = $tester->getDisplay();
+        $table = substr($display, strpos($display, 'Next steps'));
+        $plain = preg_replace('/\e\[[\d;]*m/', '', $table);
+
+        foreach (explode("\n", $plain) as $line) {
+            self::assertLessThanOrEqual(80, mb_strwidth($line), "Too wide: $line");
+        }
+
+        // The wrapped sentence reads the same once the table borders are removed
+        $text = preg_replace('/\s+/', ' ', str_replace('│', ' ', $plain));
+        self::assertStringContainsString('with PASSPORT_PRIVATE_KEY and PASSPORT_PUBLIC_KEY in each environment, set to the key contents, so existing OAuth tokens keep working', $text);
+
+        // Formatting tags split across lines don’t leak into the output
+        self::assertStringNotContainsString('options=bold', $table);
+        self::assertStringNotContainsString('</>', $table);
     }
 
     public function test_it_stops_when_the_project_has_uncommitted_changes(): void

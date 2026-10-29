@@ -18,12 +18,14 @@ use CraftCms\Prepper\Console\Checks\PluginCompatibilityCheck;
 use CraftCms\Prepper\Console\Checks\PublicPathCheck;
 use CraftCms\Prepper\Console\Steps;
 use CraftCms\Prepper\Console\Steps\Step;
+use CraftCms\Prepper\Console\Support\Text;
 use Laravel\Prompts\Prompt;
 use Laravel\Prompts\Support\Logger;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Terminal;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\outro;
@@ -134,11 +136,16 @@ class RevampCommand extends Command
             $advisor->advise($project);
         }
 
+        $nextSteps = $project->nextSteps();
+
+        // Leave room for the table’s indent, borders, padding, and the # column
+        $width = max(40, (new Terminal)->getWidth() - 8 - strlen((string) count($nextSteps)));
+
         info('Next steps');
         table(
             ['#', 'Step'],
-            collect($project->nextSteps())
-                ->map(fn (string $step, int $index) => [$index + 1, $step])
+            collect($nextSteps)
+                ->map(fn (string $step, int $index) => [$index + 1, Text::wrap($step, $width)])
                 ->all(),
         );
 
