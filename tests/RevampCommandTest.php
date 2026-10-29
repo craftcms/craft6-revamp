@@ -280,6 +280,20 @@ YAML);
         self::assertStringContainsString('Set MAIL_MAILER=smtp in .env and configure the smtp mailer in config/mail.php', $display);
         self::assertStringContainsString('host: smtp.example.com, port: 587', $display);
         self::assertStringNotContainsString('enableTwigSandbox', file_get_contents("{$this->projectPath}/config/craft/general.php"));
+
+        // Next steps keep the same order, whether a check, a step, or an advisor added them
+        $nextSteps = substr($display, strpos($display, 'Next steps'));
+        $positions = array_map(fn (string $step) => strpos($nextSteps, $step), [
+            'Add loginPath',
+            'Update the paths in config/craft/general.php',
+            'Remove pathParam',
+            'Replace the multi-environment config arrays',
+            'restore the Craft 5 project and run php craft entrify',
+            'Set MAIL_MAILER=smtp',
+            'Run composer update',
+        ]);
+        self::assertNotContains(false, $positions);
+        self::assertSame($positions, collect($positions)->sort()->values()->all());
     }
 
     public function test_it_stops_when_the_project_has_uncommitted_changes(): void

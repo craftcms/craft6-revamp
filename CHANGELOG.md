@@ -11,6 +11,7 @@
 - The command now shows the customized lines of `index.php` and `bootstrap.php` that will be lost.
 - The command now reports which packages that require `craftcms/cms` have a Craft 6 version on Packagist.
 - The command now suggests next steps for multi-environment and app-type config files, `db.php`, Yii config in `app.php`, `routes.php`, custom HTMLPurifier configs, category groups, tag groups, and global sets, and the email transport.
+- Steps with nothing to do now say so.
 
 ## 1.2.0 - 2026-09-20
 
