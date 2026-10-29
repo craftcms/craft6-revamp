@@ -17,6 +17,7 @@ You will be prompted before the tool takes potentially destructive actions.
 - Updates Composer dependencies for Craft and the Generator, adds [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), and removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv);
 - Switches the DDEV project type to `laravel`, and updates the project’s PHP version;
 - Renames a handful of environment variables to match Laravel conventions;
+- Moves the OAuth signing keys (`oauth-private.key` and `oauth-public.key`) into `storage/` if `CRAFT_STORAGE_PATH` pointed somewhere else, so Laravel Passport keeps accepting tokens issued by Craft 5;
 - Creates the `artisan` CLI entrypoint, Laravel’s `bootstrap/` files, and replaces `index.php`;
 - Scaffolds Laravel’s `framework/` directory;
 - Moves existing Craft-specific configuration files into `config/craft/`;

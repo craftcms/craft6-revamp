@@ -37,6 +37,8 @@ class RevampCommand extends Command
 
     private bool $renamePublicPath = false;
 
+    private bool $movedOAuthKeys = false;
+
     protected function configure(): void
     {
         $this
@@ -115,6 +117,7 @@ class RevampCommand extends Command
         $this->runSteps([
             'Updating composer.json' => fn (Logger $logger) => $this->updateComposer($logger, $composerJsonPath),
             'Updating DDEV configuration' => fn (Logger $logger) => $this->updateDdevConfig($logger, $path),
+            'Moving OAuth signing keys' => fn (Logger $logger) => $this->moveOAuthKeys($logger, $path),
             'Updating environment variables' => fn (Logger $logger) => $this->updateEnvVars($logger, $path),
             'Creating the artisan executable' => fn (Logger $logger) => $this->addArtisan($logger, $path),
             'Creating Laravel bootstrap files' => fn (Logger $logger) => $this->addBootstrap($logger, $path),
@@ -166,6 +169,14 @@ class RevampCommand extends Command
             if (! $contains('loginPath')) {
                 $steps[] = 'Add <options=bold>loginPath</> to config/craft/general.php if you have a front-end login form';
             }
+        }
+
+        if ($this->movedOAuthKeys) {
+            $steps[] = 'Move <options=bold>oauth-private.key</> and <options=bold>oauth-public.key</> from <options=bold>CRAFT_STORAGE_PATH</> into storage/ in your other environments, so existing OAuth tokens keep working';
+        }
+
+        if ($this->hasOAuthKeySettings($path)) {
+            $steps[] = 'Replace the <options=bold>privateKey</> and <options=bold>publicKey</> OAuth settings (<options=bold>CRAFT_OAUTH_PRIVATE_KEY</> and <options=bold>CRAFT_OAUTH_PUBLIC_KEY</>) with <options=bold>PASSPORT_PRIVATE_KEY</> and <options=bold>PASSPORT_PUBLIC_KEY</> in each environment, set to the key contents, so existing OAuth tokens keep working';
         }
 
         if ($this->isDdev($path)) {
@@ -392,6 +403,84 @@ class RevampCommand extends Command
     private function isDdev(string $path): bool
     {
         return file_exists("$path/.ddev/config.yaml");
+    }
+
+    /**
+     * Moves the OAuth signing keys from a custom Craft storage path into storage/, where Laravel Passport looks for them.
+     */
+    private function moveOAuthKeys(Logger $logger, string $path): void
+    {
+        $craftStoragePath = $this->envValue($path, 'CRAFT_STORAGE_PATH');
+
+        if ($craftStoragePath === null) {
+            $logger->success('OAuth signing keys are already in storage/.');
+
+            return;
+        }
+
+        if (! str_starts_with($craftStoragePath, '/') && ! preg_match('#^[a-zA-Z]:[/\\\\]#', $craftStoragePath)) {
+            $craftStoragePath = "$path/$craftStoragePath";
+        }
+
+        $craftStoragePath = rtrim(str_replace('\\', '/', $craftStoragePath), '/');
+
+        if (realpath($craftStoragePath) !== false && realpath($craftStoragePath) === realpath("$path/storage")) {
+            $logger->success('OAuth signing keys are already in storage/.');
+
+            return;
+        }
+
+        foreach (['oauth-private.key', 'oauth-public.key'] as $file) {
+            $source = "$craftStoragePath/$file";
+            $target = "$path/storage/$file";
+
+            if (! file_exists($source)) {
+                continue;
+            }
+
+            if (file_exists($target)) {
+                $logger->warning("storage/$file already exists, so $source wasn’t moved.");
+
+                continue;
+            }
+
+            if (! is_dir("$path/storage")) {
+                mkdir("$path/storage", recursive: true);
+            }
+
+            rename($source, $target);
+            chmod($target, 0600);
+            $this->movedOAuthKeys = true;
+            $logger->success("Moved $file to storage/");
+        }
+    }
+
+    private function hasOAuthKeySettings(string $path): bool
+    {
+        foreach (['CRAFT_OAUTH_PRIVATE_KEY', 'CRAFT_OAUTH_PUBLIC_KEY'] as $name) {
+            if ($this->envValue($path, $name) !== null) {
+                return true;
+            }
+        }
+
+        $configPath = "$path/config/craft/oauth.php";
+
+        return file_exists($configPath) && preg_match('/\b(privateKey|publicKey)\b/', file_get_contents($configPath));
+    }
+
+    private function envValue(string $path, string $name): ?string
+    {
+        foreach (['.env', '.ddev/.env.web', '.ddev/.env'] as $envPath) {
+            if (file_exists("$path/$envPath")) {
+                $value = Dotenv::parse(file_get_contents("$path/$envPath"))[$name] ?? null;
+
+                if ($value !== null && $value !== '') {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function updateEnvVars(Logger $logger, string $path): void
