@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+- Removed the “Run artisan craft:setup:publish” next step, since `composer update` already runs it through the `post-autoload-dump` scripts the command adds.
+
 ## 1.3.0 - 2026-10-29
 
 - The command now rewrites `dirname(__DIR__)`-based paths in `config/craft/general.php` to `base_path()` or `public_path()`, and removes the `omitScriptNameInUrls`, `pathParam`, and `enableTwigSandbox` settings.

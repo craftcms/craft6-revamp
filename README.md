@@ -57,7 +57,7 @@ Finally, the tool lists the follow-up actions that apply to your project, such a
 - Settings and paths the tool couldn’t update safely;
 - Multi-environment config arrays, app-type config files, `db.php`, Yii components and modules in `app.php`, URL rules in `routes.php`, and custom HTMLPurifier configs;
 - Plugins without a Craft 6 version;
-- `composer update`, `artisan craft:setup:publish`, `artisan key:generate`, and `artisan craft:up` to run Craft 6’s migrations.
+- `composer update` (which also publishes Craft’s assets and config via `artisan craft:setup:publish`), `artisan key:generate`, and `artisan craft:up` to run Craft 6’s migrations.
 
 ## What it doesn’t do
 
