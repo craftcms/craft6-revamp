@@ -17,5 +17,6 @@ class FinalCommandsAdvisor implements Advisor
         $project->suggest(NextStepSection::Commands, "Run <options=bold>{$prefix}composer update</>");
         $project->suggest(NextStepSection::Commands, "Run <options=bold>{$prefix}artisan craft:setup:publish</>");
         $project->suggest(NextStepSection::Commands, "Run <options=bold>{$prefix}artisan key:generate</>");
+        $project->suggest(NextStepSection::Commands, "Run <options=bold>{$prefix}artisan craft:up</> to run Craft 6’s migrations");
     }
 }

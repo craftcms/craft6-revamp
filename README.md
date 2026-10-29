@@ -57,13 +57,13 @@ Finally, the tool lists the follow-up actions that apply to your project, such a
 - Settings and paths the tool couldn’t update safely;
 - Multi-environment config arrays, app-type config files, `db.php`, Yii components and modules in `app.php`, URL rules in `routes.php`, and custom HTMLPurifier configs;
 - Plugins without a Craft 6 version;
-- `composer update`, `artisan craft:setup:publish`, and `artisan key:generate`.
+- `composer update`, `artisan craft:setup:publish`, `artisan key:generate`, and `artisan craft:up` to run Craft 6’s migrations.
 
 ## What it doesn’t do
 
 The tool only prepares your local project’s files. You’re responsible for:
 
-- **Your database.** The tool doesn’t run migrations. Once the next steps are done, run `artisan craft:up` (or `php craft up`);
+- **Your database.** The tool doesn’t touch it, and doesn’t run migrations itself. `artisan craft:up` is the last of its next steps;
 - **Plugins.** The tool reports which plugins have a Craft 6 version, but doesn’t change their constraints in `composer.json`, or remove or replace them. During the alpha, you may need to set `CRAFT_DISABLED_PLUGINS="*"` or uninstall incompatible plugins before upgrading;
 - **Categories, tags, and global sets.** The tool doesn’t entrify them; run the `php craft entrify/*` commands on Craft 5 first if you want to;
 - **Customized entrypoints.** Lines you added to `index.php` or `bootstrap.php` (like PHP constants or custom environment loading) are shown, then removed; you’ll need to find Laravel equivalents;

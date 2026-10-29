@@ -12,6 +12,7 @@
 - The command now reports which packages that require `craftcms/cms` have a Craft 6 version on Packagist.
 - The command now suggests next steps for multi-environment and app-type config files, `db.php`, Yii config in `app.php`, `routes.php`, custom HTMLPurifier configs, category groups, tag groups, and global sets, and the email transport.
 - Next steps are now wrapped to the terminal width.
+- The next steps now end with running `artisan craft:up`.
 - Steps with nothing to do now say so.
 
 ## 1.2.0 - 2026-09-20

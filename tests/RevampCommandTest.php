@@ -295,6 +295,8 @@ YAML);
             'restore the Craft 5 project and run php craft entrify',
             'Set MAIL_MAILER=smtp',
             'Run composer update',
+            'Run artisan key:generate',
+            'Run artisan craft:up',
         ]);
         self::assertNotContains(false, $positions);
         self::assertSame($positions, collect($positions)->sort()->values()->all());
