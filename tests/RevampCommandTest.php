@@ -78,6 +78,9 @@ PHP);
         file_put_contents(
             "{$this->projectPath}/config/project/project.yaml",
             <<<'YAML'
+email:
+  fromEmail: $SYSTEM_EMAIL
+  fromName: 'Acme Co'
 fs:
   siteAssets:
     type: craft\fs\Local
@@ -101,7 +104,7 @@ YAML,
         );
         file_put_contents(
             "{$this->projectPath}/.env.example.production",
-            "CRAFT_ENVIRONMENT=production\nCRAFT_DB_SERVER=127.0.0.1\nCRAFT_SECURITY_KEY=\n",
+            "CRAFT_ENVIRONMENT=production\nCRAFT_DB_SERVER=127.0.0.1\nCRAFT_SECURITY_KEY=\nMAIL_FROM_NAME=Custom\n",
         );
         file_put_contents("{$this->projectPath}/.gitignore", "/vendor\n/public/storage\n");
     }
@@ -185,9 +188,14 @@ PHP, file_get_contents("{$this->projectPath}/config/craft/general.php"));
         self::assertStringContainsString('APP_URL="https://example.test"', $env);
         self::assertStringContainsString('DB_TABLE_PREFIX="craft_"', $env);
         self::assertStringNotContainsString('CRAFT_DB_TABLE=', $env);
+        self::assertStringContainsString('MAIL_FROM_ADDRESS="${SYSTEM_EMAIL}"', $env);
+        self::assertStringContainsString('MAIL_FROM_NAME="Acme Co"', $env);
 
         $exampleEnv = file_get_contents("{$this->projectPath}/.env.example.production");
         self::assertStringContainsString('APP_ENV=production', $exampleEnv);
+        self::assertStringContainsString('MAIL_FROM_ADDRESS="${SYSTEM_EMAIL}"', $exampleEnv);
+        self::assertStringContainsString('MAIL_FROM_NAME=Custom', $exampleEnv);
+        self::assertStringNotContainsString('Acme Co', $exampleEnv);
         self::assertStringContainsString('DB_HOST="127.0.0.1"', $exampleEnv);
         self::assertStringNotContainsString('CRAFT_DB_SERVER', $exampleEnv);
         self::assertStringNotContainsString('CRAFT_SECURITY_KEY', $exampleEnv);

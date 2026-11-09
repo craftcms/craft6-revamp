@@ -54,6 +54,12 @@ class UpdateEnvVars implements Step
 
     public function run(Project $project, Logger $logger): void
     {
+        $email = $project->projectConfig()['email'] ?? null;
+        $mailFrom = array_filter([
+            'MAIL_FROM_ADDRESS' => self::envValue($email['fromEmail'] ?? null),
+            'MAIL_FROM_NAME' => self::envValue($email['fromName'] ?? null),
+        ]);
+
         foreach (self::ENV_PATHS as $envPath) {
             $fullPath = $project->path($envPath);
 
@@ -89,6 +95,13 @@ class UpdateEnvVars implements Step
                 $add['CACHE_STORE'] = 'file';
                 $add['SESSION_DRIVER'] = 'file';
                 $add['APP_KEY'] = '';
+
+                // Email sent with Laravel’s Mail facade uses these as its default sender
+                foreach ($mailFrom as $name => $value) {
+                    if (($vars[$name] ?? '') === '') {
+                        $add[$name] = $value;
+                    }
+                }
             }
 
             if (! empty($remove) || ! empty($add)) {
@@ -100,5 +113,17 @@ class UpdateEnvVars implements Step
         }
 
         $logger->success('Updated .env variables');
+    }
+
+    /**
+     * Returns a project config value as an `.env` value, with `$VARIABLE` references interpolated.
+     */
+    private static function envValue(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '' || str_starts_with($value, '@')) {
+            return null;
+        }
+
+        return preg_match('/^\$(\w+)$/', $value, $match) ? '${'.$match[1].'}' : $value;
     }
 }
