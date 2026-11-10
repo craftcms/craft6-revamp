@@ -54,22 +54,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions \$exceptions): void {
         //
     })
-
+    ->create()
 PHP;
         $publicPath = $project->targetPublicPath();
         if ($publicPath !== 'public') {
-            $contents .= <<<PHP
-    ->booted(function (Application \$app) {
-        \$app->usePublicPath(base_path('$publicPath'));
-    })
-
-PHP;
+            // Set as soon as the app exists, so config files and service providers get the right public_path()
+            $contents .= "\n    ->usePublicPath(base_path('$publicPath'))";
         }
 
-        $contents .= <<<'PHP'
-    ->create();
-
-PHP;
+        $contents .= ";\n";
 
         file_put_contents($appPath, $contents);
 

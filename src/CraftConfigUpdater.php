@@ -202,14 +202,7 @@ REGEX;
     private function pathExpression(string $path): string
     {
         if (preg_match('/^\/'.preg_quote($this->oldPublicPath, '/').'(\/.*)?$/', $path, $match)) {
-            $path = $match[1] ?? '';
-
-            // public_path() only reflects a custom web root after the app has booted, which is too late for config files
-            if ($this->publicPath !== 'public') {
-                return $this->call('base_path', $this->publicPath.$path);
-            }
-
-            return $this->call('public_path', $path);
+            return $this->call('public_path', $match[1] ?? '');
         }
 
         return $this->call('base_path', $path);

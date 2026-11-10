@@ -4,6 +4,7 @@ namespace CraftCms\Revamp\Tests;
 
 use CraftCms\Revamp\RevampCommand;
 use FilesystemIterator;
+use Illuminate\Container\Container;
 use Laravel\Prompts\ConfirmPrompt;
 use Laravel\Prompts\Prompt;
 use PHPUnit\Framework\TestCase;
@@ -351,6 +352,26 @@ YAML);
         // Formatting tags split across lines don’t leak into the output
         self::assertStringNotContainsString('options=bold', $table);
         self::assertStringNotContainsString('</>', $table);
+    }
+
+    public function test_it_keeps_a_web_root_that_isnt_renamed(): void
+    {
+        rename("{$this->projectPath}/public", "{$this->projectPath}/web");
+
+        Prompt::fallbackWhen(true);
+        ConfirmPrompt::fallbackUsing(fn (ConfirmPrompt $prompt) => ! str_starts_with($prompt->label, 'Would you like to rename web'));
+
+        $tester = new CommandTester(new RevampCommand);
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['path' => $this->projectPath]));
+        self::assertFileExists("{$this->projectPath}/web/index.php");
+
+        // The web root is set before the app boots, so config files and service providers get it from public_path()
+        $app = require "{$this->projectPath}/bootstrap/app.php";
+        Container::setInstance(null);
+
+        self::assertFalse($app->isBooted());
+        self::assertSame("{$this->projectPath}/web", $app->publicPath());
     }
 
     public function test_it_stops_when_the_project_has_uncommitted_changes(): void

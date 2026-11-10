@@ -8,19 +8,14 @@ use Symfony\Component\Yaml\Yaml;
 
 class FilesystemMigrationSuggestions
 {
-    private string $publicPath = 'public';
-
     /** @var string[] Craft aliases found in the current filesystem’s settings that have no Laravel equivalent */
     private array $unresolvedAliases = [];
 
     /**
-     * @param  string  $publicPath  The web root folder name, relative to the project root, once the upgrade is done
      * @return string[]
      */
-    public function get(string $projectConfigPath, string $publicPath = 'public'): array
+    public function get(string $projectConfigPath): array
     {
-        $this->publicPath = $publicPath;
-
         if (! file_exists($projectConfigPath)) {
             return [];
         }
@@ -274,10 +269,7 @@ class FilesystemMigrationSuggestions
         $path = ltrim($suffix, '/');
 
         return match ($alias) {
-            '@webroot' => $this->publicPath === 'public'
-                ? $this->call('public_path', $path)
-                // public_path() only reflects a custom web root once the app has booted, after config is loaded
-                : $this->call('base_path', $this->publicPath.($path === '' ? '' : "/$path")),
+            '@webroot' => $this->call('public_path', $path),
             '@root' => $this->call('base_path', $path),
             '@storage' => $this->call('storage_path', $path),
             '@web' => "env('APP_URL')".($path === '' ? '' : ' . '.var_export("/$path", true)),

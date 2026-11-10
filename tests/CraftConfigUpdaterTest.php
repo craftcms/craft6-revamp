@@ -111,8 +111,8 @@ PHP, $contents);
     {
         [$contents] = (new CraftConfigUpdater('web', 'web'))->rewritePaths("<?php return ['@webroot' => dirname(__DIR__) . '/web/'];");
 
-        // public_path() only reflects a custom web root once the app has booted, after config files load
-        self::assertSame("<?php return ['@webroot' => base_path('web/')];", $contents);
+        // bootstrap/app.php points public_path() at web/ before config files load
+        self::assertSame("<?php return ['@webroot' => public_path()];", $contents);
     }
 
     public function test_it_reports_what_it_cant_update_safely(): void

@@ -148,9 +148,5 @@ PHP, $suggestions[0]);
         self::assertStringContainsString('Replace <options=bold>@assetBasePath</> with a real path or URL', $suggestions[2]);
         self::assertStringContainsString("'bucket' => env('S3_BUCKET'),", $suggestions[3]);
         self::assertStringContainsString("'root' => env('S3_PREFIX') . '/assets',", $suggestions[3]);
-
-        // A web root that isn't renamed to public/ needs base_path(), since public_path() isn't updated until the app boots
-        $suggestions = (new FilesystemMigrationSuggestions)->get($this->projectConfigPath, 'web');
-        self::assertStringContainsString("'root' => base_path('web/uploads'),", $suggestions[0]);
     }
 }
