@@ -53,7 +53,7 @@ class MailerAdvisor implements Advisor
         }
 
         $project->suggest(NextStepSection::Mail, sprintf(
-            'Craft no longer reads the email transport from project config. Set <options=bold>MAIL_MAILER=%s</> in .env and configure the <options=bold>%s</> mailer in config/mail.php to replace <options=bold>%s</>%s%s',
+            'Craft no longer reads the email transport from project config. If you’re using <options=bold>yii2-adapter</>, you can set <options=bold>MAIL_MAILER=craft-transport</> in .env. Otherwise, set <options=bold>MAIL_MAILER=%s</> in .env and configure the <options=bold>%s</> mailer in config/mail.php to replace <options=bold>%s</>%s%s',
             $mailer,
             $mailer,
             $type,

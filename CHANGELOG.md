@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+- The email transport next step now mentions that projects using `yii2-adapter` can set `MAIL_MAILER=craft-transport` in `.env`.
+
 ## 1.3.1 - 2026-10-29
 
 - Removed the “Run artisan craft:setup:publish” next step, since `composer update` already runs it through the `post-autoload-dump` scripts the command adds.
