@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The command now requires `craftcms/cms` `^6.0.0-beta.1`.
 - The email transport next step now mentions that projects using `yii2-adapter` can set `MAIL_MAILER=craft-transport` in `.env`.
 
 ## 1.3.1 - 2026-10-29

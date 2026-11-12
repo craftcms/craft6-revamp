@@ -3,7 +3,7 @@
 This CLI tool automates a number of steps in the Craft 6 upgrade process.
 
 > [!TIP]
-> Craft 6 is in alpha. Follow the [Upgrading to Craft 6.x](https://craftcms.com/docs/6.x/upgrade.html) guide for complete upgrade instructions: it covers preparing your project, running this tool, and what to check afterwards. See [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/laravel-transition-planning) for the release timeline and plugin compatibility.
+> Craft 6 is in beta. Follow the [Upgrading to Craft 6.x](https://craftcms.com/docs/6.x/upgrade.html) guide for complete upgrade instructions: it covers preparing your project, running this tool, and what to check afterwards. See [Planning for the Laravel Transition](https://craftcms.com/knowledge-base/laravel-transition-planning) for the release timeline and plugin compatibility.
 
 > [!CAUTION]
 > Make sure you have a way to restore your project, if you encounter issues.
@@ -38,7 +38,7 @@ You will be prompted before the tool takes potentially destructive actions, and 
 
 ### Changes
 
-- **`composer.json`:** requires `craftcms/cms` `^6.0.0-alpha.1` and [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), updates `craftcms/generator` to `3.x-dev` if it’s installed, removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv), `yiisoft/yii2-shell` (use `artisan tinker` instead), and the `config.platform.php` override, and adds Laravel’s `post-autoload-dump` scripts;
+- **`composer.json`:** requires `craftcms/cms` `^6.0.0-beta.1` and [craftcms/yii2-adapter](https://github.com/craftcms/yii2-adapter), updates `craftcms/generator` to `3.x-dev` if it’s installed, removes [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv), `yiisoft/yii2-shell` (use `artisan tinker` instead), and the `config.platform.php` override, and adds Laravel’s `post-autoload-dump` scripts;
 - **DDEV:** switches the project type to `laravel`, sets PHP 8.5, and updates the docroot when the web root is renamed;
 - **Environment variables:** in `.env`, `.ddev/.env`, `.ddev/.env.web`, and the `.env.example*` files, renames the `CRAFT_DB_*` variables to Laravel’s `DB_*` ones (including `CRAFT_DB_TABLE` and `CRAFT_DB_TABLE_PREFIX` to `DB_TABLE_PREFIX`), `CRAFT_DEV_MODE` to `APP_DEBUG`, and removes `CRAFT_SECURITY_KEY`. Sets `APP_ENV` from `CRAFT_ENVIRONMENT` (`dev` becomes `local`) and `APP_URL` from `PRIMARY_SITE_URL`;
 - **OAuth keys:** moves `oauth-private.key` and `oauth-public.key` into `storage/` if `CRAFT_STORAGE_PATH` pointed somewhere else, so Laravel Passport keeps accepting tokens issued by Craft 5;
@@ -66,7 +66,7 @@ Finally, the tool lists the follow-up actions that apply to your project, such a
 The tool only prepares your local project’s files. You’re responsible for:
 
 - **Your database.** The tool doesn’t touch it, and doesn’t run migrations itself. `artisan craft:up` is the last of its next steps;
-- **Plugins.** The tool reports which plugins have a Craft 6 version, but doesn’t change their constraints in `composer.json`, or remove or replace them. During the alpha, you may need to set `CRAFT_DISABLED_PLUGINS="*"` or uninstall incompatible plugins before upgrading;
+- **Plugins.** The tool reports which plugins have a Craft 6 version, but doesn’t change their constraints in `composer.json`, or remove or replace them. During the alpha and early beta, you may need to set `CRAFT_DISABLED_PLUGINS="*"` or uninstall incompatible plugins before upgrading;
 - **Categories, tags, and global sets.** The tool doesn’t entrify them; run the `php craft entrify/*` commands on Craft 5 first if you want to;
 - **Customized entrypoints.** Lines you added to `index.php` or `bootstrap.php` (like PHP constants or custom environment loading) are shown, then removed; you’ll need to find Laravel equivalents;
 - **Config it can only flag.** Filesystems, mail, multi-environment configs, app-type configs, `db.php`, Yii components and modules, URL rules, and HTMLPurifier configs are listed as next steps, not converted. Paths in `general.php` the tool doesn’t recognize are left as they are, and the suggested disks keep Craft aliases other than `@webroot`, `@web`, `@root`, and `@storage` for you to replace;
