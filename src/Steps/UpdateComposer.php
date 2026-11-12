@@ -23,7 +23,7 @@ class UpdateComposer implements Step
         $composerJsonPath = $project->path('composer.json');
         $config = Json::decodeFromFile($composerJsonPath);
 
-        $config['require']['craftcms/cms'] = '^6.0.0-alpha.1';
+        $config['require']['craftcms/cms'] = '^6.0.0-beta.1';
         $config['require']['craftcms/yii2-adapter'] = '*';
 
         if (isset($config['require-dev']['craftcms/generator'])) {
